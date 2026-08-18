@@ -9,12 +9,8 @@ let likedSongs = new Set(JSON.parse(localStorage.getItem('likedSongs')) || []);
 let currentLyrics = [];
 let progressInterval = null;
 
-// YouTube player variables
-let ytPlayer = null;
-let isYTReady = false;
-let userVolume = 70; // 0 - 100
-
 // --- DOM ELEMENTS ---
+const audio = document.getElementById("audio-engine");
 const viewHome = document.getElementById("view-home");
 const viewSearch = document.getElementById("view-search");
 const viewLibrary = document.getElementById("view-library");
@@ -59,95 +55,53 @@ const toastContainer = document.getElementById("toast-container");
 document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   updateLibraryView();
-
-  // Load YouTube API script dynamically
-  const tag = document.createElement('script');
-  tag.src = "https://www.youtube.com/iframe_api";
-  const firstScriptTag = document.getElementsByTagName('script')[0];
-  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  
+  // Set default volume
+  audio.volume = 0.7;
 
   // Load initial trending music from API
   initAppMusic();
 });
 
-// --- YOUTUBE PLAYER BOOTSTRAP ---
-window.onYouTubeIframeAPIReady = function() {
-  ytPlayer = new YT.Player('youtube-player', {
-    videoId: 'dQw4w9WgXcQ', // default silent starting video
-    playerVars: {
-      'autoplay': 0,
-      'controls': 1,
-      'playsinline': 1,
-      'rel': 0
-    },
-    events: {
-      'onReady': onPlayerReady,
-      'onStateChange': onYTPlayerStateChange
-    }
-  });
-};
-
-function onPlayerReady(event) {
-  isYTReady = true;
-  console.log("YouTube Visible Player Connected");
-  ytPlayer.unMute();
-  ytPlayer.setVolume(userVolume);
-}
-
-function onYTPlayerStateChange(event) {
-  // YT.PlayerState.PLAYING = 1, PAUSED = 2, ENDED = 0
-  if (event.data === YT.PlayerState.PLAYING) {
-    isPlaying = true;
-    updatePlayerBar();
-    if (!progressInterval) {
-      progressInterval = setInterval(trackPlaybackProgress, 500);
-    }
-  } else if (event.data === YT.PlayerState.PAUSED) {
-    isPlaying = false;
-    updatePlayerBar();
-  } else if (event.data === YT.PlayerState.ENDED) {
-    if (isRepeat) {
-      ytPlayer.seekTo(0, true);
-      ytPlayer.playVideo();
-    } else {
-      skipNext();
-    }
-  }
-}
-
-// --- KEYLESS YOUTUBE SEARCH SCRAPER (Piped API Mirror Pool) ---
-async function searchYouTubeVideoId(query) {
-  const mirrors = [
-    "https://api.piped.private.coffee",
-    "https://pipedapi.kavin.rocks",
-    "https://piped-api.lunar.icu"
-  ];
-  
-  for (const base of mirrors) {
-    try {
-      const url = `${base}/search?q=${encodeURIComponent(query)}&filter=all`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        // Find first item that is a standard stream/video
-        const video = data.find(item => item.type === "stream");
-        if (video && video.url) {
-          const match = video.url.match(/v=([a-zA-Z0-9_-]{11})/);
-          if (match) {
-            console.log(`Found YouTube video ID: ${match[1]} from mirror ${base}`);
-            return match[1];
-          }
-        }
-      }
-    } catch(e) {
-      console.warn(`Piped mirror ${base} failed for query "${query}":`, e);
-    }
-  }
-  return null;
-}
-
-// --- API FETCH UTILITY (iTunes Search) ---
+// --- API FETCH UTILITIES (JioSaavn Search & Details) ---
 async function fetchMusic(query, limit = 20) {
+  const base = "https://jiosaavn-api.vercel.app";
+  
+  try {
+    const url = `${base}/api/search?query=${encodeURIComponent(query)}`;
+    const response = await fetch(url);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        console.log("Loaded song metadata from JioSaavn Search API");
+        return data.results.map(item => {
+          const coverUrl = item.images && item.images["500x500"] 
+            ? item.images["500x500"] 
+            : (item.image || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80");
+            
+          const artistsName = item.more_info ? item.more_info.singers : "Unknown Artist";
+
+          return {
+            id: String(item.id),
+            title: item.title,
+            artist: artistsName,
+            album: item.album || "Single",
+            cover: coverUrl,
+            url: "", // Will be lazy-loaded on play
+            duration: 240, // default placeholder
+            isFullSong: true,
+            fallbackUrl: "",
+            lyrics: generateSimulatedLyrics(item.title, artistsName)
+          };
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("JioSaavn search failed, falling back to iTunes API:", e);
+  }
+
+  // Fallback to iTunes Search API if JioSaavn API is offline
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}`);
     const data = await response.json();
@@ -162,13 +116,15 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        duration: 240, // default placeholder
-        isFullSong: true,
+        url: item.previewUrl, // 30s iTunes preview
+        duration: 30,
+        isFullSong: false,
+        fallbackUrl: item.previewUrl,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
-    });
+    }).filter(track => track.url);
   } catch (error) {
-    console.error("iTunes API fetch failed:", error);
+    console.error("All music APIs failed:", error);
     return [];
   }
 }
@@ -180,7 +136,7 @@ function generateSimulatedLyrics(title, artist) {
     { time: 4, text: `Artist: ${artist}` },
     { time: 8, text: "[Melodic Intro Playing...]" },
     { time: 13, text: "Welcome to Spotify Glass!" },
-    { time: 20, text: "Streaming high-fidelity full songs natively via YouTube Companion." },
+    { time: 20, text: "Streaming high-fidelity full songs natively in your browser." },
     { time: 28, text: "Click the Heart icon to save this song to your library." },
     { time: 35, text: "Toggle between scrolling lyrics and queue panels on the right side." },
     { time: 45, text: "Search for any Hindi, Punjabi, Haryanvi, or international track." },
@@ -188,6 +144,20 @@ function generateSimulatedLyrics(title, artist) {
     { time: 85, text: "Adjust progress and volume slider controls dynamically." },
     { time: 120, text: "[Outro Beats]" }
   ];
+}
+
+// Helper to parse duration string (e.g. "3:34" or 214) into seconds
+function parseDurationString(dur) {
+  if (!dur) return 180;
+  if (typeof dur === "number") return dur;
+  
+  const parts = String(dur).split(":").map(Number);
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  } else if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return parseInt(dur) || 180;
 }
 
 // Fetch trending hits on load
@@ -348,39 +318,65 @@ async function loadAndPlayTrack() {
 
   if (progressInterval) clearInterval(progressInterval);
 
-  showToast(`Locating video for "${currentSong.title}"...`, true);
+  showToast(`Loading "${currentSong.title}"...`, true);
 
-  const query = `${currentSong.title} ${currentSong.artist} audio`;
+  try {
+    // Lazy-load direct full audio streams from the JioSaavn API details endpoint
+    if (currentSong.isFullSong && !currentSong.url) {
+      const detailsUrl = `https://jiosaavn-api.vercel.app/api/song?id=${currentSong.id}`;
+      const response = await fetch(detailsUrl);
+      if (response.ok) {
+        const detailsData = await response.json();
+        const songInfo = detailsData.results ? detailsData.results[0] : detailsData;
+        
+        if (songInfo && songInfo.media_url) {
+          currentSong.url = songInfo.media_url;
+          currentSong.duration = parseDurationString(songInfo.duration);
+        } else {
+          // Check media_urls block
+          const mediaUrls = songInfo.media_urls || {};
+          const bestUrl = mediaUrls["320_KBPS"] || mediaUrls["160_KBPS"] || mediaUrls["96_KBPS"];
+          if (bestUrl) {
+            currentSong.url = bestUrl;
+            currentSong.duration = parseDurationString(songInfo.duration);
+          }
+        }
+      }
+    }
 
-  // Get the precise YouTube videoId using Piped search scrape
-  const videoId = await searchYouTubeVideoId(query);
-
-  if (isYTReady && ytPlayer && ytPlayer.loadVideoById && videoId) {
-    console.log(`Loading precise YouTube Video ID: ${videoId}`);
-    ytPlayer.loadVideoById({
-      videoId: videoId,
-      startSeconds: 0
-    });
-    ytPlayer.unMute();
-    ytPlayer.setVolume(userVolume);
-    
-    isPlaying = true;
+    // Playback via native HTML5 Audio Engine
+    audio.src = currentSong.url || currentSong.fallbackUrl;
+    audio.load();
+    audio.play()
+      .then(() => {
+        isPlaying = true;
+        updatePlayerBar();
+        updateQueueView();
+        renderLyrics();
+        progressInterval = setInterval(trackPlaybackProgress, 500);
+      })
+      .catch(err => {
+        console.error("Native play failed, executing iTunes fallback preview:", err);
+        // Execute fallback if geoblocked/offline
+        if (currentSong.fallbackUrl && audio.src !== currentSong.fallbackUrl) {
+          audio.src = currentSong.fallbackUrl;
+          audio.play().then(() => {
+            isPlaying = true;
+            updatePlayerBar();
+          }).catch(e => {
+            console.error("Playback fallback failed:", e);
+            isPlaying = false;
+            updatePlayerBar();
+          });
+        } else {
+          isPlaying = false;
+          updatePlayerBar();
+        }
+      });
+  } catch (err) {
+    console.error("Playback engine setup failed:", err);
+    isPlaying = false;
     updatePlayerBar();
-    updateQueueView();
-    renderLyrics();
-    
-    progressInterval = setInterval(trackPlaybackProgress, 500);
-  } else {
-    // If exact video ID scrape fails, fall back to playlist search loading
-    console.warn("Exact YouTube Video ID fetch failed, falling back to search query URL loading");
-    const iframe = document.getElementById("youtube-player");
-    iframe.src = `https://www.youtube.com/embed?autoplay=1&listType=search&list=${encodeURIComponent(query)}&enablejsapi=1&origin=${window.location.origin}`;
-    
-    isPlaying = true;
-    updatePlayerBar();
-    updateQueueView();
-    renderLyrics();
-    progressInterval = setInterval(trackPlaybackProgress, 500);
   }
 
   renderTracksList(currentTrackList, homeTrackListContainer);
@@ -392,21 +388,15 @@ async function loadAndPlayTrack() {
 }
 
 function trackPlaybackProgress() {
-  if (isYTReady && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getDuration) {
-    try {
-      const cur = ytPlayer.getCurrentTime() || 0;
-      const dur = ytPlayer.getDuration() || 240; // fallback default
-      
-      if (dur) {
-        const progressPercent = (cur / dur) * 100;
-        timelineProgress.style.width = `${progressPercent}%`;
-        timeCurrent.innerText = formatTime(cur);
-        timeDuration.innerText = formatTime(dur);
-        updateLyricsHighlight(cur);
-      }
-    } catch(e) {
-      // Catch postMessage communication checks during iframe loading
-    }
+  const cur = audio.currentTime || 0;
+  const dur = audio.duration || 0;
+
+  if (dur) {
+    const progressPercent = (cur / dur) * 100;
+    timelineProgress.style.width = `${progressPercent}%`;
+    timeCurrent.innerText = formatTime(cur);
+    timeDuration.innerText = formatTime(dur);
+    updateLyricsHighlight(cur);
   }
 }
 
@@ -421,14 +411,10 @@ function togglePlay() {
   }
 
   if (isPlaying) {
-    if (isYTReady && ytPlayer && ytPlayer.pauseVideo) {
-      ytPlayer.pauseVideo();
-    }
+    audio.pause();
     isPlaying = false;
   } else {
-    if (isYTReady && ytPlayer && ytPlayer.playVideo) {
-      ytPlayer.playVideo();
-    }
+    audio.play().catch(() => {});
     isPlaying = true;
   }
   updatePlayerBar();
@@ -467,8 +453,8 @@ function skipNext() {
 }
 
 function skipPrev() {
-  if (isYTReady && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getCurrentTime() > 3) {
-    ytPlayer.seekTo(0, true);
+  if (audio.currentTime > 3) {
+    audio.currentTime = 0;
   } else {
     currentSongIndex = (currentSongIndex - 1 + currentTrackList.length) % currentTrackList.length;
     loadAndPlayTrack();
@@ -645,13 +631,11 @@ function setupEventListeners() {
   });
 
   timeline.addEventListener("click", (e) => {
-    if (isYTReady && ytPlayer && ytPlayer.getDuration) {
-      const rect = timeline.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
-      const dur = ytPlayer.getDuration() || 240;
-      ytPlayer.seekTo(percent * dur, true);
-    }
+    if (!audio.duration) return;
+    const rect = timeline.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
+    audio.currentTime = percent * audio.duration;
   });
 
   volumeSlider.addEventListener("click", (e) => {
@@ -659,13 +643,9 @@ function setupEventListeners() {
     const clickX = e.clientX - rect.left;
     const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
     
-    userVolume = Math.round(percent * 100);
-    if (isYTReady && ytPlayer && ytPlayer.setVolume) {
-      ytPlayer.setVolume(userVolume);
-      ytPlayer.unMute();
-    }
-    volumeProgress.style.width = `${userVolume}%`;
-    showToast(`Volume: ${userVolume}%`);
+    audio.volume = percent;
+    volumeProgress.style.width = `${percent * 100}%`;
+    showToast(`Volume: ${Math.round(percent * 100)}%`);
   });
 
   btnPlay.addEventListener("click", togglePlay);
