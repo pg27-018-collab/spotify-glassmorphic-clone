@@ -55,6 +55,14 @@ const paneLyrics = document.getElementById("pane-lyrics");
 const paneQueue = document.getElementById("pane-queue");
 const toastContainer = document.getElementById("toast-container");
 
+// Settings Modal elements
+const settingsModal = document.getElementById("settings-modal");
+const btnSettings = document.getElementById("btn-settings");
+const btnCloseSettings = document.getElementById("btn-close-settings");
+const btnSaveSettings = document.getElementById("btn-save-settings");
+const inputSpotifyId = document.getElementById("input-spotify-client-id");
+const inputSpotifySecret = document.getElementById("input-spotify-client-secret");
+
 // --- INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
@@ -66,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const firstScriptTag = document.getElementsByTagName('script')[0];
   firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-  // Load initial trending music from API
+  // Load initial music catalog
   initAppMusic();
 });
 
@@ -115,6 +123,44 @@ function onYTPlayerStateChange(event) {
   }
 }
 
+// --- SPOTIFY OAUTH TOKEN SYSTEM ---
+async function fetchSpotifyAccessToken(clientId, clientSecret) {
+  try {
+    const response = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": "Basic " + btoa(clientId + ":" + clientSecret)
+      },
+      body: "grant_type=client_credentials"
+    });
+    if (response.ok) {
+      const data = await response.json();
+      localStorage.setItem("spotify_token", data.access_token);
+      localStorage.setItem("spotify_token_expires", Date.now() + (data.expires_in * 1000));
+      return data.access_token;
+    }
+  } catch (e) {
+    console.error("Failed to fetch Spotify token:", e);
+  }
+  return null;
+}
+
+async function getSpotifyToken() {
+  const clientId = localStorage.getItem("spotify_client_id");
+  const clientSecret = localStorage.getItem("spotify_client_secret");
+  if (!clientId || !clientSecret) return null;
+
+  const token = localStorage.getItem("spotify_token");
+  const expires = localStorage.getItem("spotify_token_expires");
+  
+  if (token && expires && Date.now() < parseInt(expires)) {
+    return token;
+  }
+  
+  return await fetchSpotifyAccessToken(clientId, clientSecret);
+}
+
 // --- SECURE MULTI-PROVIDER SEARCH API (Piped & Invidious Mirror Pool) ---
 async function searchYouTubeVideoId(query) {
   const providers = [
@@ -154,8 +200,48 @@ async function searchYouTubeVideoId(query) {
   return null;
 }
 
-// --- API FETCH UTILITY (iTunes Search Catalog) ---
+// --- API FETCH CATALOG (Spotify with fallback to iTunes) ---
 async function fetchMusic(query, limit = 20) {
+  const spotifyToken = await getSpotifyToken();
+  
+  // 1. If Spotify Developer credentials are saved, query Spotify catalog
+  if (spotifyToken) {
+    try {
+      const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`, {
+        headers: {
+          "Authorization": `Bearer ${spotifyToken}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.tracks && data.tracks.items) {
+          console.log("Loaded search results from official Spotify Web API");
+          return data.tracks.items.map(item => {
+            const coverUrl = item.album.images && item.album.images[0] 
+              ? item.album.images[0].url 
+              : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80";
+              
+            const artists = item.artists.map(a => a.name).join(", ");
+
+            return {
+              id: String(item.id),
+              title: item.name,
+              artist: artists,
+              album: item.album.name || "Single",
+              cover: coverUrl,
+              duration: Math.round(item.duration_ms / 1000),
+              isFullSong: true,
+              lyrics: generateSimulatedLyrics(item.name, artists)
+            };
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Spotify search query failed, falling back to iTunes API:", e);
+    }
+  }
+
+  // 2. Fallback to iTunes Search API if Spotify is not configured or fails
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}`);
     const data = await response.json();
@@ -170,13 +256,13 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        duration: 240, // default display placeholder
+        duration: 240, // default placeholder
         isFullSong: true,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
     });
   } catch (error) {
-    console.error("Catalog search failed:", error);
+    console.error("All search catalogs failed:", error);
     return [];
   }
 }
@@ -715,6 +801,45 @@ function setupEventListeners() {
     paneQueue.style.display = "flex";
     paneLyrics.style.display = "none";
     updateQueueView();
+  });
+
+  // Settings Modal events
+  btnSettings.addEventListener("click", () => {
+    inputSpotifyId.value = localStorage.getItem("spotify_client_id") || "";
+    inputSpotifySecret.value = localStorage.getItem("spotify_client_secret") || "";
+    settingsModal.style.display = "flex";
+  });
+
+  btnCloseSettings.addEventListener("click", () => {
+    settingsModal.style.display = "none";
+  });
+
+  btnSaveSettings.addEventListener("click", async () => {
+    const id = inputSpotifyId.value.trim();
+    const secret = inputSpotifySecret.value.trim();
+    
+    if (id && secret) {
+      localStorage.setItem("spotify_client_id", id);
+      localStorage.setItem("spotify_client_secret", secret);
+      showToast("Verifying credentials...");
+      
+      const token = await fetchSpotifyAccessToken(id, secret);
+      if (token) {
+        showToast("Spotify Catalog Connected!", true);
+        settingsModal.style.display = "none";
+        initAppMusic(); // Reload dashboard using Spotify catalog
+      } else {
+        showToast("Validation failed. Check credentials.", false);
+      }
+    } else {
+      localStorage.removeItem("spotify_client_id");
+      localStorage.removeItem("spotify_client_secret");
+      localStorage.removeItem("spotify_token");
+      localStorage.removeItem("spotify_token_expires");
+      showToast("Settings cleared. Reverted to backup catalog.", true);
+      settingsModal.style.display = "none";
+      initAppMusic();
+    }
   });
 }
 
