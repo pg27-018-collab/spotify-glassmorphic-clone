@@ -1,0 +1,12 @@
+node_modules/
+.expo/
+.eas/
+.agents/
+api/
+vercel.json
+server.py
+web-app.js
+sw.js
+manifest.json
+icon-192.png
+icon-512.png
