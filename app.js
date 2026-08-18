@@ -9,12 +9,8 @@ let likedSongs = new Set(JSON.parse(localStorage.getItem('likedSongs')) || []);
 let currentLyrics = [];
 let progressInterval = null;
 
-// YouTube player variables
-let ytPlayer = null;
-let isYTReady = false;
-let userVolume = 70; // 0 - 100
-
 // --- DOM ELEMENTS ---
+const audio = document.getElementById("audio-engine");
 const viewHome = document.getElementById("view-home");
 const viewSearch = document.getElementById("view-search");
 const viewLibrary = document.getElementById("view-library");
@@ -67,61 +63,13 @@ const inputSpotifySecret = document.getElementById("input-spotify-client-secret"
 document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   updateLibraryView();
-
-  // Load YouTube API script dynamically
-  const tag = document.createElement('script');
-  tag.src = "https://www.youtube.com/iframe_api";
-  const firstScriptTag = document.getElementsByTagName('script')[0];
-  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  
+  // Set default volume
+  audio.volume = 0.7;
 
   // Load initial music catalog
   initAppMusic();
 });
-
-// --- YOUTUBE HIDDEN PLAYER BOOTSTRAP ---
-window.onYouTubeIframeAPIReady = function() {
-  ytPlayer = new YT.Player('youtube-player', {
-    videoId: 'dQw4w9WgXcQ', // default starting video
-    playerVars: {
-      'autoplay': 0,
-      'controls': 0,
-      'playsinline': 1,
-      'rel': 0
-    },
-    events: {
-      'onReady': onPlayerReady,
-      'onStateChange': onYTPlayerStateChange
-    }
-  });
-};
-
-function onPlayerReady(event) {
-  isYTReady = true;
-  console.log("YouTube Background Audio Engine Ready");
-  ytPlayer.unMute();
-  ytPlayer.setVolume(userVolume);
-}
-
-function onYTPlayerStateChange(event) {
-  // YT.PlayerState.PLAYING = 1, PAUSED = 2, ENDED = 0
-  if (event.data === YT.PlayerState.PLAYING) {
-    isPlaying = true;
-    updatePlayerBar();
-    if (!progressInterval) {
-      progressInterval = setInterval(trackPlaybackProgress, 500);
-    }
-  } else if (event.data === YT.PlayerState.PAUSED) {
-    isPlaying = false;
-    updatePlayerBar();
-  } else if (event.data === YT.PlayerState.ENDED) {
-    if (isRepeat) {
-      ytPlayer.seekTo(0, true);
-      ytPlayer.playVideo();
-    } else {
-      skipNext();
-    }
-  }
-}
 
 // --- SPOTIFY OAUTH TOKEN SYSTEM ---
 async function fetchSpotifyAccessToken(clientId, clientSecret) {
@@ -161,45 +109,6 @@ async function getSpotifyToken() {
   return await fetchSpotifyAccessToken(clientId, clientSecret);
 }
 
-// --- SECURE MULTI-PROVIDER SEARCH API (Piped & Invidious Mirror Pool) ---
-async function searchYouTubeVideoId(query) {
-  const providers = [
-    // Piped instances
-    { base: "https://api.piped.private.coffee/search", params: "?q=", type: "piped" },
-    { base: "https://pipedapi.kavin.rocks/search", params: "?q=", type: "piped" },
-    { base: "https://piped-api.lunar.icu/search", params: "?q=", type: "piped" },
-    // Invidious instances
-    { base: "https://yewtu.be/api/v1/search", params: "?q=", type: "invidious" },
-    { base: "https://invidious.flokinet.to/api/v1/search", params: "?q=", type: "invidious" }
-  ];
-  
-  for (const prov of providers) {
-    try {
-      const url = `${prov.base}${prov.params}${encodeURIComponent(query)}&filter=all`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        
-        if (prov.type === "piped" && Array.isArray(data)) {
-          const video = data.find(item => item.type === "stream");
-          if (video && video.url) {
-            const match = video.url.match(/v=([a-zA-Z0-9_-]{11})/);
-            if (match) return match[1];
-          }
-        } else if (prov.type === "invidious" && Array.isArray(data)) {
-          const video = data.find(item => item.type === "video");
-          if (video && video.videoId) {
-            return video.videoId;
-          }
-        }
-      }
-    } catch(e) {
-      console.warn(`Search Provider ${prov.base} failed:`, e);
-    }
-  }
-  return null;
-}
-
 // --- API FETCH CATALOG (Spotify with fallback to iTunes) ---
 async function fetchMusic(query, limit = 20) {
   const spotifyToken = await getSpotifyToken();
@@ -229,11 +138,12 @@ async function fetchMusic(query, limit = 20) {
               artist: artists,
               album: item.album.name || "Single",
               cover: coverUrl,
-              duration: Math.round(item.duration_ms / 1000),
-              isFullSong: true,
+              url: item.preview_url, // Spotify official 30s preview URL
+              duration: 30,          // Spotify preview duration is 30s
+              isFullSong: false,
               lyrics: generateSimulatedLyrics(item.name, artists)
             };
-          });
+          }).filter(track => track.url); // filter out tracks with null preview URLs
         }
       }
     } catch (e) {
@@ -256,11 +166,12 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        duration: 240, // default placeholder
-        isFullSong: true,
+        url: item.previewUrl, // iTunes official 30s preview URL
+        duration: 30,          // iTunes preview duration is 30s
+        isFullSong: false,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
-    });
+    }).filter(track => track.url);
   } catch (error) {
     console.error("All search catalogs failed:", error);
     return [];
@@ -270,17 +181,14 @@ async function fetchMusic(query, limit = 20) {
 // Generate synced lyrics dynamically
 function generateSimulatedLyrics(title, artist) {
   return [
-    { time: 0, text: `[Playing: ${title}]` },
-    { time: 4, text: `Artist: ${artist}` },
-    { time: 8, text: "[Melodic Intro Playing...]" },
-    { time: 13, text: "Welcome to Spotify Glass!" },
-    { time: 20, text: "Streaming high-fidelity full songs natively in your browser." },
-    { time: 28, text: "Click the Heart icon to save this song to your library." },
-    { time: 35, text: "Toggle between scrolling lyrics and queue panels on the right side." },
-    { time: 45, text: "Search for any Hindi, Punjabi, Haryanvi, or international track." },
-    { time: 60, text: "[Melodious Instrumental Bridge]" },
-    { time: 85, text: "Adjust progress and volume slider controls dynamically." },
-    { time: 120, text: "[Outro Beats]" }
+    { time: 0, text: `[Playing Original Preview: ${title}]` },
+    { time: 3, text: `Artist: ${artist}` },
+    { time: 6, text: "[Streaming direct CD-quality AAC audio]" },
+    { time: 10, text: "Bypassing geoblocking and YouTube frames completely." },
+    { time: 15, text: "High-fidelity native audio streaming active." },
+    { time: 20, text: "Click the settings icon to configure your Spotify keys." },
+    { time: 25, text: "Transitioning to next track shortly..." },
+    { time: 30, text: "[End of Preview]" }
   ];
 }
 
@@ -361,7 +269,7 @@ function renderTracksList(tracks, container) {
         </div>
       </div>
       <div class="track-album">${track.album}</div>
-      <div class="track-duration">Full Song</div>
+      <div class="track-duration">0:30 Preview</div>
       <div class="track-actions" onclick="event.stopPropagation();">
         <button class="btn-like ${likedSongs.has(track.id) ? 'liked' : ''}" onclick="toggleLike('${track.id}')">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;">
@@ -390,7 +298,7 @@ async function loadCategory(genre) {
     case 'Punjabi':
       apiQuery = "Diljit Dosanjh Karan Aujla AP Dhillon Shubh";
       displayTitle = "Latest Punjabi Hits";
-      displayDesc = "Bhangra energy and punjabi pop trends. Full songs streaming now.";
+      displayDesc = "Bhangra energy and punjabi pop trends. Official 30s previews.";
       break;
     case 'Retro':
       apiQuery = "Kishore Kumar Lata Mangeshkar RD Burman Rafi";
@@ -405,7 +313,7 @@ async function loadCategory(genre) {
     case 'Haryanvi':
       apiQuery = "Sapna Choudhary Raju Haryanvi Hits";
       displayTitle = "Latest Haryanvi Beats";
-      displayDesc = "High bass and local rhythmic hooks streaming in full length.";
+      displayDesc = "High bass and local rhythmic hooks streaming in high quality.";
       break;
   }
 
@@ -435,54 +343,35 @@ function updateLibraryView() {
   renderTracksList(likedTracks, libraryLikedContainer);
 }
 
-// --- HIDDEN YOUTUBE PLAYBACK CONTROL ENGINE ---
+// --- NATIVE HTML5 PLAYBACK ENGINE ---
 async function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
 
   if (progressInterval) clearInterval(progressInterval);
 
-  showToast(`Locating track for "${currentSong.title}"...`, true);
+  showToast(`Streaming: "${currentSong.title}"...`, true);
 
-  // Search query format targeting official releases
-  const query = `${currentSong.artist} - Topic ${currentSong.title}`;
-
-  // Find exact video ID via Piped/Invidious Pool
-  const videoId = await searchYouTubeVideoId(query);
-
-  if (isYTReady && ytPlayer && ytPlayer.loadVideoById && videoId) {
-    console.log(`Streaming official Video ID: ${videoId}`);
-    ytPlayer.loadVideoById({
-      videoId: videoId,
-      startSeconds: 0
-    });
-    ytPlayer.unMute();
-    ytPlayer.setVolume(userVolume);
-    
-    isPlaying = true;
-    updatePlayerBar();
-    updateQueueView();
-    renderLyrics();
-    
-    progressInterval = setInterval(trackPlaybackProgress, 500);
-  } else {
-    // Fail-safe loadPlaylist fallback if API connection to single video fails
-    console.warn("Direct videoId resolve failed, fallback to loadPlaylist search");
-    if (isYTReady && ytPlayer && ytPlayer.loadPlaylist) {
-      ytPlayer.loadPlaylist({
-        list: query,
-        listType: 'search',
-        index: 0,
-        startSeconds: 0
+  try {
+    audio.src = currentSong.url;
+    audio.load();
+    audio.play()
+      .then(() => {
+        isPlaying = true;
+        updatePlayerBar();
+        updateQueueView();
+        renderLyrics();
+        progressInterval = setInterval(trackPlaybackProgress, 500);
+      })
+      .catch(err => {
+        console.error("Playback failed:", err);
+        isPlaying = false;
+        updatePlayerBar();
       });
-      ytPlayer.unMute();
-      ytPlayer.setVolume(userVolume);
-      isPlaying = true;
-      updatePlayerBar();
-      updateQueueView();
-      renderLyrics();
-      progressInterval = setInterval(trackPlaybackProgress, 500);
-    }
+  } catch (err) {
+    console.error("Audio player failed:", err);
+    isPlaying = false;
+    updatePlayerBar();
   }
 
   renderTracksList(currentTrackList, homeTrackListContainer);
@@ -494,23 +383,14 @@ async function loadAndPlayTrack() {
 }
 
 function trackPlaybackProgress() {
-  if (isYTReady && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getDuration) {
-    try {
-      const cur = ytPlayer.getCurrentTime() || 0;
-      const dur = ytPlayer.getDuration() || 0;
-      
-      if (dur) {
-        const progressPercent = (cur / dur) * 100;
-        timelineProgress.style.width = `${progressPercent}%`;
-        timeCurrent.innerText = formatTime(cur);
-        timeDuration.innerText = formatTime(dur);
-        updateLyricsHighlight(cur);
-      } else {
-        timeCurrent.innerText = formatTime(cur);
-        timeDuration.innerText = "Loading...";
-      }
-    } catch(e) {}
-  }
+  const cur = audio.currentTime || 0;
+  const dur = audio.duration || 30; // fallback preview duration
+  
+  const progressPercent = (cur / dur) * 100;
+  timelineProgress.style.width = `${progressPercent}%`;
+  timeCurrent.innerText = formatTime(cur);
+  timeDuration.innerText = formatTime(dur);
+  updateLyricsHighlight(cur);
 }
 
 function togglePlay() {
@@ -524,14 +404,10 @@ function togglePlay() {
   }
 
   if (isPlaying) {
-    if (isYTReady && ytPlayer && ytPlayer.pauseVideo) {
-      ytPlayer.pauseVideo();
-    }
+    audio.pause();
     isPlaying = false;
   } else {
-    if (isYTReady && ytPlayer && ytPlayer.playVideo) {
-      ytPlayer.playVideo();
-    }
+    audio.play().catch(() => {});
     isPlaying = true;
   }
   updatePlayerBar();
@@ -570,8 +446,8 @@ function skipNext() {
 }
 
 function skipPrev() {
-  if (isYTReady && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getCurrentTime() > 3) {
-    ytPlayer.seekTo(0, true);
+  if (audio.currentTime > 3) {
+    audio.currentTime = 0;
   } else {
     currentSongIndex = (currentSongIndex - 1 + currentTrackList.length) % currentTrackList.length;
     loadAndPlayTrack();
@@ -747,14 +623,32 @@ function setupEventListeners() {
     }
   });
 
-  timeline.addEventListener("click", (e) => {
-    if (isYTReady && ytPlayer && ytPlayer.getDuration) {
-      const rect = timeline.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
-      const dur = ytPlayer.getDuration() || 0;
-      ytPlayer.seekTo(percent * dur, true);
+  // Audio event listeners
+  audio.addEventListener("ended", () => {
+    if (isRepeat) {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } else {
+      skipNext();
     }
+  });
+
+  audio.addEventListener("pause", () => {
+    isPlaying = false;
+    updatePlayerBar();
+  });
+
+  audio.addEventListener("play", () => {
+    isPlaying = true;
+    updatePlayerBar();
+  });
+
+  timeline.addEventListener("click", (e) => {
+    if (!audio.duration) return;
+    const rect = timeline.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
+    audio.currentTime = percent * audio.duration;
   });
 
   volumeSlider.addEventListener("click", (e) => {
@@ -762,13 +656,9 @@ function setupEventListeners() {
     const clickX = e.clientX - rect.left;
     const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
     
-    userVolume = Math.round(percent * 100);
-    if (isYTReady && ytPlayer && ytPlayer.setVolume) {
-      ytPlayer.setVolume(userVolume);
-      ytPlayer.unMute();
-    }
-    volumeProgress.style.width = `${userVolume}%`;
-    showToast(`Volume: ${userVolume}%`);
+    audio.volume = percent;
+    volumeProgress.style.width = `${percent * 100}%`;
+    showToast(`Volume: ${Math.round(percent * 100)}%`);
   });
 
   btnPlay.addEventListener("click", togglePlay);
@@ -827,7 +717,7 @@ function setupEventListeners() {
       if (token) {
         showToast("Spotify Catalog Connected!", true);
         settingsModal.style.display = "none";
-        initAppMusic(); // Reload dashboard using Spotify catalog
+        initAppMusic();
       } else {
         showToast("Validation failed. Check credentials.", false);
       }
