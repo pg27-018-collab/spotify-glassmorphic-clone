@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Premium Clone - Setup Ringtone for ₹19</title>
+  <meta name="description" content="A glassmorphic clone of Spotify featuring ad interruptions and custom ringtone setup options for ₹19 INR.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Ambient Animated Background Blobs -->
+  <div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <!-- Mandatory 15-Second Startup Ad Overlay -->
+  <div id="ad-overlay" class="ad-overlay">
+    <div class="ad-card">
+      <span class="ad-sponsor-label">Sponsored Message</span>
+      <div class="ad-media-mock">
+        <div class="ad-media-glow"></div>
+        <div class="ad-media-content">
+          <!-- Bell SVG representing ringtones -->
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-12S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+          <div class="ad-media-title">Antigravity Ringtones</div>
+        </div>
+      </div>
+      <h2 class="ad-heading">Unlock Ringtone Feature</h2>
+      <p class="ad-desc">Tired of boring default rings? Get custom ringtones for your phone! Set any song from Spotify as your ringtone for just ₹19 INR. Watch this short sponsor message to start listening.</p>
+      
+      <div class="ad-progress-bar">
+        <div id="ad-progress-fill" class="ad-progress-fill"></div>
+      </div>
+
+      <div class="ad-footer-actions">
+        <button id="btn-continue-app" class="btn-continue-app">Continue to App (15s)</button>
+        <div id="ad-timer-text" class="ad-timer-text">Please wait 15 seconds to dismiss this ad.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Wrapper -->
+  <div class="app-container">
+    
+    <!-- App Main Split -->
+    <div class="app-main">
+      
+      <!-- Left Sidebar Panel -->
+      <aside class="sidebar glass-panel">
+        <div class="sidebar-top">
+          <!-- Logo branding -->
+          <div class="logo-container">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-12S17.52 2 12 2zm4.58 14.39c-.18.29-.56.38-.85.2-.29-.18-.38-.56-.2-.85 1.05-1.72 2.65-2.28 4.41-1.89.33.07.54-.14.61-.47.07-.33-.14-.54-.47-.61-2.03-.45-3.89.17-5.12 2.19-.18.28-.18.66.18.84.28.18.66.18.84-.18l.6-.93zM13.2 13.9c-.23.37-.72.49-1.09.26-.37-.23-.49-.72-.26-1.09 1.34-2.19 3.52-2.91 5.86-2.42.41.09.68-.17.77-.58.09-.41-.17-.68-.58-.77-2.65-.55-5.11.27-6.68 2.82l-.02.04c-.23.36-.23.85.2 1.08.37.23.85.2 1.08-.2l.72-1.14zm.12-2.97c-.28.46-.88.61-1.34.33-.46-.28-.61-.88-.33-1.34 1.6-2.62 4.38-3.48 7.29-2.9.51.1.84-.23.94-.74.1-.51-.23-.84-.74-.94-3.27-.65-6.38.31-8.24 3.35l.02.04c-.28.46-.28 1.07.26 1.35.46.28 1.07.26 1.35-.26l.8-1.33z"/>
+            </svg>
+            <span class="logo-text">Spotify<sup>Glass</sup></span>
+          </div>
+
+          <!-- Navigation Links -->
+          <nav class="sidebar-nav">
+            <div id="nav-home" class="nav-item active">
+              <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+              <span>Home</span>
+            </div>
+            <div id="nav-search" class="nav-item">
+              <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+              <span>Search</span>
+            </div>
+            <div id="nav-library" class="nav-item">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-12S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+              <span>Library</span>
+            </div>
+          </nav>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="ad-notice">
+            <span class="ad-notice-badge">Ad Supported</span>
+            <span>Free unlimited music streaming. Pay only ₹19 INR to set any song as a mobile ringtone!</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center Main Content Panel -->
+      <main class="main-content glass-panel">
+        
+        <!-- Header (Search and User details) -->
+        <header class="main-header">
+          <div class="search-bar-container">
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input id="search-bar" type="text" class="search-input" placeholder="Search songs, artists, playlists...">
+          </div>
+          
+          <div class="user-badge">
+            <div class="user-avatar">S</div>
+            <span class="user-name">Sumanto</span>
+          </div>
+        </header>
+
+        <!-- Dynamic Page Views -->
+        <div class="view-container">
+          
+          <!-- HOME VIEW -->
+          <section id="view-home" class="view-section active">
+            <!-- Hero Banner -->
+            <div class="featured-banner">
+              <span class="banner-badge">Trending Ringtone</span>
+              <div class="banner-content">
+                <h1 id="hero-title">Acoustic Sunsets</h1>
+                <p id="hero-desc">The perfect chill vibe. Tap the 🔔 icon next to any song to instantly set it as your phone ringtone for only ₹19 INR!</p>
+              </div>
+            </div>
+
+            <!-- Playlist grids -->
+            <h2 class="section-title">Featured Playlists</h2>
+            <div class="playlists-grid">
+              
+              <div class="playlist-card" onclick="loadCategory('Lofi')">
+                <div class="card-img-container">
+                  <img class="card-img" src="https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=300&auto=format&fit=crop&q=80" alt="Lofi Study">
+                  <div class="card-play-btn">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                </div>
+                <div class="card-title">Lofi Chill Study</div>
+                <div class="card-subtitle">Relax and focus with soft lofi beats.</div>
+              </div>
+
+              <div class="playlist-card" onclick="loadCategory('Acoustic')">
+                <div class="card-img-container">
+                  <img class="card-img" src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&auto=format&fit=crop&q=80" alt="Acoustic">
+                  <div class="card-play-btn">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                </div>
+                <div class="card-title">Acoustic Vibes</div>
+                <div class="card-subtitle">Smooth melodies and organic tunes.</div>
+              </div>
+
+              <div class="playlist-card" onclick="loadCategory('Electronic')">
+                <div class="card-img-container">
+                  <img class="card-img" src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=80" alt="Electro">
+                  <div class="card-play-btn">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                </div>
+                <div class="card-title">Hyper Future</div>
+                <div class="card-subtitle">Upbeat electronic and synth beats.</div>
+              </div>
+
+              <div class="playlist-card" onclick="loadCategory('Cinematic')">
+                <div class="card-img-container">
+                  <img class="card-img" src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=300&auto=format&fit=crop&q=80" alt="Ambient">
+                  <div class="card-play-btn">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                </div>
+                <div class="card-title">Epic Cinematic</div>
+                <div class="card-subtitle">Orchestral backdrops and massive scale.</div>
+              </div>
+
+            </div>
+
+            <!-- Trending Songs list -->
+            <h2 class="section-title">Trending Tracks</h2>
+            <div id="home-track-list" class="tracklist-container">
+              <!-- Dynamically populated via app.js -->
+            </div>
+          </section>
+
+          <!-- SEARCH VIEW -->
+          <section id="view-search" class="view-section">
+            <h2 class="section-title">Search Results</h2>
+            <div id="search-results-list" class="tracklist-container">
+              <div style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 40px 0;">
+                Type in the search bar above to look for tracks or artists.
+              </div>
+            </div>
+          </section>
+
+          <!-- LIBRARY VIEW (Purchased Ringtones & Liked Songs) -->
+          <section id="view-library" class="view-section">
+            <h2 class="section-title">Your Unlocked Ringtones</h2>
+            <div id="library-ringtones-list" class="unlocked-list" style="margin-bottom: 32px;">
+              <!-- Dynamically populated -->
+              <div style="color: var(--text-muted); font-size: 0.9rem; padding: 20px; text-align: center; border: 1px dashed var(--glass-border); border-radius: 12px;">
+                You haven't unlocked any ringtones yet. Unlock songs for ₹19 INR to see them here!
+              </div>
+            </div>
+
+            <h2 class="section-title">Liked Songs</h2>
+            <div id="library-liked-list" class="tracklist-container">
+              <!-- Dynamically populated -->
+              <div style="color: var(--text-muted); font-size: 0.9rem; padding: 20px; text-align: center;">
+                No liked songs yet. Click the heart icon on any song!
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </main>
+
+      <!-- Right Panel: Lyrics, Queue and Purchased status -->
+      <aside class="right-panel glass-panel">
+        <div class="right-panel-tabs">
+          <div id="tab-lyrics" class="right-tab active">Lyrics</div>
+          <div id="tab-queue" class="right-tab">Up Next</div>
+        </div>
+
+        <div class="right-panel-content">
+          <!-- Lyrics View -->
+          <div id="pane-lyrics" class="lyrics-container">
+            <div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding-top: 40px;">
+              Play a track to display lyrics.
+            </div>
+          </div>
+          <!-- Queue View -->
+          <div id="pane-queue" class="queue-list" style="display: none;">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- Bottom Player Panel -->
+    <footer class="player-bar glass-panel">
+      
+      <!-- Track details -->
+      <div class="player-track-info">
+        <img id="player-album-art" class="player-cover" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&auto=format&fit=crop&q=80" alt="Album Cover">
+        <div class="player-track-details">
+          <div id="player-track-title" class="player-track-title">Select a track</div>
+          <div id="player-track-artist" class="player-track-artist">Artist</div>
+        </div>
+        <button id="btn-like-current" class="btn-like">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="player-controls-container">
+        <div class="playback-buttons">
+          <button id="btn-shuffle" class="btn-control" title="Shuffle">
+            <svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+          </button>
+          
+          <button id="btn-prev" class="btn-control" title="Previous">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          
+          <button id="btn-play" class="btn-control btn-play-pause" title="Play">
+            <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pause-icon" viewBox="0 0 24 24" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          
+          <button id="btn-next" class="btn-control" title="Next">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+          
+          <button id="btn-repeat" class="btn-control" title="Repeat">
+            <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+          </button>
+        </div>
+
+        <div class="timeline-container">
+          <span id="player-time-current" class="timeline-time">0:00</span>
+          <div id="player-timeline" class="slider-container">
+            <div id="player-timeline-progress" class="slider-progress">
+              <div class="slider-handle"></div>
+            </div>
+          </div>
+          <span id="player-time-duration" class="timeline-time">0:00</span>
+        </div>
+      </div>
+
+      <!-- Action items (Ringtone setup shortcuts) -->
+      <div class="player-right-controls">
+        <button id="btn-player-ringtone" class="btn-ringtone">
+          <!-- Bell icon -->
+          <svg viewBox="0 0 24 24">
+            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+          </svg>
+          <span>Set Ringtone ₹19</span>
+        </button>
+
+        <div class="volume-container">
+          <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          <div id="player-volume" class="slider-container">
+            <div id="player-volume-progress" class="slider-progress" style="width: 70%;">
+              <div class="slider-handle"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </footer>
+
+  </div>
+
+  <!-- RINGTONE PAYMENT MODAL (Simulated Paywall) -->
+  <div id="payment-modal" class="modal-overlay">
+    <div class="modal-content">
+      <button id="btn-payment-close" class="modal-close">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+
+      <!-- Main Payment Step -->
+      <div id="pay-step-details">
+        <h2 class="payment-title">Set as Custom Ringtone</h2>
+        <p id="payment-song-name" class="payment-subtitle">Configure "Song Title" as your phone ringtone</p>
+        
+        <div class="payment-price-tag">
+          <span class="price-amount">₹19 INR</span>
+          <span class="price-desc">one-time activation fee</span>
+        </div>
+
+        <div class="payment-tabs">
+          <div id="tab-upi" class="pay-tab active">UPI QR (Fast)</div>
+          <div id="tab-card" class="pay-tab">Credit/Debit Card</div>
+        </div>
+
+        <!-- UPI Pane -->
+        <div id="pane-upi" class="payment-pane active">
+          <div class="qr-code-mock">
+            <!-- Simulated QR code representing Google Pay / PhonePe UPI payment link -->
+            <img id="qr-code-image" src="" alt="UPI Payment QR Code">
+            <div class="qr-scanner-line"></div>
+          </div>
+          <p class="payment-instruction">Scan this QR code using BHIM, Google Pay, PhonePe, or Paytm app to complete your ₹19 payment.</p>
+          <button id="btn-submit-upi" class="btn-pay">Simulate Scan & Pay</button>
+        </div>
+
+        <!-- Card Pane -->
+        <div id="pane-card" class="payment-pane">
+          <form id="card-payment-form" class="card-form" onsubmit="event.preventDefault();">
+            <div class="form-group">
+              <label class="form-label">Card Holder Name</label>
+              <input type="text" class="form-input" placeholder="Sumanto Nayak" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Card Number</label>
+              <input type="text" class="form-input" placeholder="4532 •••• •••• 8824" maxlength="19" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Expiry Date</label>
+                <input type="text" class="form-input" placeholder="MM/YY" maxlength="5" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">CVV</label>
+                <input type="password" class="form-input" placeholder="•••" maxlength="3" required>
+              </div>
+            </div>
+            <button id="btn-submit-card" class="btn-pay" type="button">Pay ₹19 INR securely</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Processing State -->
+      <div id="pay-step-processing" class="payment-processing">
+        <div class="spinner"></div>
+        <div style="font-weight: bold; font-size: 0.95rem;">Verifying Transaction...</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Confirming payment status with bank servers. Please wait.</div>
+      </div>
+
+      <!-- Success State -->
+      <div id="pay-step-success" class="payment-success">
+        <div class="success-icon-container">
+          <svg viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+        </div>
+        <h3 class="success-title">Ringtone Unlocked!</h3>
+        <p id="success-message" class="success-desc">The high quality ringtone cut for "Song Title" is now active. You can download the MP3 directly, or manage it in your Library.</p>
+        
+        <div class="success-actions">
+          <a id="btn-download-ringtone" href="#" download class="btn-pay" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, var(--accent-color) 0%, #158f3f 100%); color: #000;">
+            <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: #000;"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+            <span>Download Ringtone MP3</span>
+          </a>
+          <button id="btn-success-done" class="btn-mini" style="padding: 12px; font-size: 0.85rem; border-radius: 12px;">Back to Music</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- HTML Audio element used to play tracks natively -->
+  <audio id="audio-engine"></audio>
+
+  <script src="app.js"></script>
+</body>
+</html>
