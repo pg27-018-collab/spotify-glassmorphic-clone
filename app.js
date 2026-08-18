@@ -1,7 +1,7 @@
-// --- DATABASE OF CURATED SONGS (REAL STREAMABLE FILES) ---
-const songDatabase = [
+// --- STATIC FALLBACK DATABASE (In case API is offline) ---
+const fallbackSongs = [
   {
-    id: "1",
+    id: "fb_1",
     title: "Midnight Vibe",
     artist: "Lofi Codex",
     album: "Study Session Vol. 1",
@@ -20,7 +20,7 @@ const songDatabase = [
     ]
   },
   {
-    id: "2",
+    id: "fb_2",
     title: "Retro Horizon",
     artist: "Synthwave Project",
     album: "Grid Runner",
@@ -36,139 +36,11 @@ const songDatabase = [
       { time: 80, text: "[Guitar Synth Harmony]" },
       { time: 110, text: "Reaching the horizon..." }
     ]
-  },
-  {
-    id: "3",
-    title: "Sunset Acoustic",
-    artist: "Summer Breeze",
-    album: "Coastline Acoustic",
-    genre: "Acoustic",
-    cover: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-    lyrics: [
-      { time: 0, text: "[Acoustic Guitar Strumming]" },
-      { time: 12, text: "Sand in our shoes, ocean in our view." },
-      { time: 25, text: "Golden hours never felt this good." },
-      { time: 40, text: "Singing along to the waves crashing down." },
-      { time: 55, text: "Warm breeze, soft keys, no one around." },
-      { time: 75, text: "[Harmonica Solo]" },
-      { time: 100, text: "Leave your worries behind today." }
-    ]
-  },
-  {
-    id: "4",
-    title: "Cyber City Beats",
-    artist: "Neon Rider",
-    album: "Metropolis 2088",
-    genre: "Electronic",
-    cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-    lyrics: [
-      { time: 0, text: "[Synth Bass Intro]" },
-      { time: 20, text: "Raindrops on the steel skyscraper." },
-      { time: 35, text: "Walking through alleys, glowing blue." },
-      { time: 50, text: "Hack the mainframe, unlock the gates." },
-      { time: 65, text: "The future is ours, we set the pace." }
-    ]
-  },
-  {
-    id: "5",
-    title: "Serenity Flow",
-    artist: "Deep Meditation",
-    album: "Mindfulness Ambient",
-    genre: "Lofi",
-    cover: "https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
-    lyrics: [
-      { time: 0, text: "[Soft Ambient Piano]" },
-      { time: 15, text: "Take a deep breath. Let it go." },
-      { time: 35, text: "In this moment, there is peace." },
-      { time: 55, text: "Flow with the tide of the universe." },
-      { time: 75, text: "[Wind Chimes & Soft Pad]" }
-    ]
-  },
-  {
-    id: "6",
-    title: "Acoustic Whispers",
-    artist: "Claire de Lune",
-    album: "Rainy Day Songs",
-    genre: "Acoustic",
-    cover: "https://images.unsplash.com/photo-1487180142328-054b783fc471?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
-    lyrics: [
-      { time: 0, text: "[Piano & Guitar Intro]" },
-      { time: 10, text: "Whispers of the wind, drops on the pane." },
-      { time: 28, text: "A quiet heart in the autumn rain." },
-      { time: 45, text: "We share a cup, we share a smile." },
-      { time: 60, text: "Stay here with me for a little while." }
-    ]
-  },
-  {
-    id: "7",
-    title: "Future Vision",
-    artist: "Da Vox",
-    album: "Techno Origins",
-    genre: "Electronic",
-    cover: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
-    lyrics: [
-      { time: 0, text: "[Tech Beat Loops]" },
-      { time: 18, text: "Step into the future, feel the bass." },
-      { time: 35, text: "Fast tracks, no time to waste." },
-      { time: 52, text: "Visualizing the electronic dream." },
-      { time: 70, text: "[High Energy Transition]" }
-    ]
-  },
-  {
-    id: "8",
-    title: "Ethereal Dream",
-    artist: "The Ambientist",
-    album: "Infinite Spaces",
-    genre: "Cinematic",
-    cover: "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
-    lyrics: [
-      { time: 0, text: "[Ethereal Choirs]" },
-      { time: 20, text: "Floating in an endless sky." },
-      { time: 45, text: "Stars align, passing by." },
-      { time: 70, text: "Cinematic echoes of a timeless realm." },
-      { time: 95, text: "[Orchestral String Swells]" }
-    ]
-  },
-  {
-    id: "9",
-    title: "Vocal Harmony",
-    artist: "Acoustic Duo",
-    album: "Campfire Sessions",
-    genre: "Acoustic",
-    cover: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3",
-    lyrics: [
-      { time: 0, text: "[Dual Guitars]" },
-      { time: 12, text: "Under the starlight, we start to play." },
-      { time: 25, text: "Melodies that wash the dust of the day." },
-      { time: 42, text: "Harmony sweet, rhythm complete." }
-    ]
-  },
-  {
-    id: "10",
-    title: "Epic Ascent",
-    artist: "Symphonic Echo",
-    album: "Legends Unleashed",
-    genre: "Cinematic",
-    cover: "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3",
-    lyrics: [
-      { time: 0, text: "[Epic Drum Roll]" },
-      { time: 15, text: "The climb begins, steep and grand." },
-      { time: 35, text: "Looking down upon the promised land." },
-      { time: 55, text: "Victory is near, the path is clear." },
-      { time: 75, text: "[Full Brass & Choir Peak]" }
-    ]
   }
 ];
 
 // --- APP STATE ---
+let songDatabase = [...fallbackSongs];
 let currentTrackList = [...songDatabase];
 let currentSongIndex = 0;
 let isPlaying = false;
@@ -251,13 +123,93 @@ const toastContainer = document.getElementById("toast-container");
 // --- INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", () => {
   startStartupAd();
-  renderTracksList(songDatabase, homeTrackListContainer);
   setupEventListeners();
   updateLibraryView();
   
   // Set default volume
   audio.volume = 0.7;
+
+  // Load trending music from API on startup
+  initAppMusic();
 });
+
+// --- API SEARCH UTILITY ---
+async function fetchFromiTunes(query, limit = 30) {
+  try {
+    const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}`);
+    const data = await response.json();
+    
+    // Map iTunes track results to our structured schema
+    return data.results.map(item => {
+      // Get higher resolution artwork
+      const hdCover = item.artworkUrl100 
+        ? item.artworkUrl100.replace("100x100bb.jpg", "500x500bb.jpg") 
+        : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80";
+
+      return {
+        id: String(item.trackId),
+        title: item.trackName,
+        artist: item.artistName,
+        album: item.collectionName || "Single",
+        cover: hdCover,
+        url: item.previewUrl,
+        lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
+      };
+    }).filter(track => track.url); // only include tracks with valid playable streams
+  } catch (error) {
+    console.error("iTunes API error:", error);
+    return [];
+  }
+}
+
+// Generate synced lyrics dynamically based on track titles
+function generateSimulatedLyrics(title, artist) {
+  return [
+    { time: 0, text: `[Playing: ${title}]` },
+    { time: 4, text: `Artist: ${artist}` },
+    { time: 8, text: "[Melodic Music intro playing...]" },
+    { time: 13, text: "Welcome to Spotify Glass Premium!" },
+    { time: 18, text: "Did you know you can set this track as your ringtone?" },
+    { time: 24, text: "Click the 🔔 Set Ringtone button to activate for only ₹19 INR!" },
+    { time: 30, text: "Thank you for watching the sponsor ad to support free streaming." },
+    { time: 35, text: "[Instrumental Beats Outro]" }
+  ];
+}
+
+// Fetch trending hits from Hindi, Punjabi, and Haryanvi on load
+async function initAppMusic() {
+  const categories = ["Diljit Dosanjh", "Trending Hindi", "Haryanvi Hits", "Arijit Singh Hits"];
+  let loadedTracks = [];
+  
+  // Run queries in parallel for fast loading
+  try {
+    const fetchPromises = categories.map(cat => fetchFromiTunes(cat, 5));
+    const results = await Promise.all(fetchPromises);
+    results.forEach(res => {
+      loadedTracks = [...loadedTracks, ...res];
+    });
+  } catch (err) {
+    console.error("Failed to load initial music from API:", err);
+  }
+
+  // Shuffle loading results
+  loadedTracks.sort(() => Math.random() - 0.5);
+
+  if (loadedTracks.length > 0) {
+    songDatabase = loadedTracks;
+  } else {
+    songDatabase = [...fallbackSongs];
+  }
+
+  currentTrackList = [...songDatabase];
+  renderTracksList(songDatabase, homeTrackListContainer);
+  
+  // Set default details in player bar
+  currentSongIndex = 0;
+  updatePlayerBar();
+  renderLyrics();
+  updateQueueView();
+}
 
 // --- AD SYSTEM ---
 function startStartupAd() {
@@ -269,7 +221,7 @@ function startStartupAd() {
   adProgressFill.style.width = "0%";
   adTimerText.innerText = "Please wait 15 seconds to continue.";
 
-  // Set timeout to force trigger layout update for smooth CSS transition
+  // Force trigger layout calculation for CSS transitions
   setTimeout(() => {
     adProgressFill.style.transition = "width 15s linear";
     adProgressFill.style.width = "100%";
@@ -301,7 +253,6 @@ function dismissStartupAd() {
 
 // --- NAVIGATION SYSTEM ---
 function switchView(viewName) {
-  // Reset all active classes
   [viewHome, viewSearch, viewLibrary].forEach(view => view.classList.remove("active"));
   [navHome, navSearch, navLibrary].forEach(nav => nav.classList.remove("active"));
 
@@ -328,14 +279,13 @@ function renderTracksList(tracks, container) {
   }
 
   tracks.forEach((track, index) => {
-    const isCurrent = currentTrackList[currentSongIndex].id === track.id && isPlaying;
+    const isCurrent = currentTrackList[currentSongIndex] && currentTrackList[currentSongIndex].id === track.id && isPlaying;
     const isUnlocked = purchasedRingtones.has(track.id);
 
     const row = document.createElement("div");
     row.className = `track-row ${isCurrent ? 'active' : ''}`;
     row.dataset.songId = track.id;
 
-    // Track listing layout
     row.innerHTML = `
       <div class="track-index">${index + 1}</div>
       <div class="track-info">
@@ -346,7 +296,7 @@ function renderTracksList(tracks, container) {
         </div>
       </div>
       <div class="track-album">${track.album}</div>
-      <div class="track-duration">3:02</div>
+      <div class="track-duration">0:30</div>
       <div class="track-actions" onclick="event.stopPropagation();">
         <button class="btn-ringtone ${isUnlocked ? 'unlocked' : ''}" onclick="openPaymentModal('${track.id}')">
           <svg viewBox="0 0 24 24">
@@ -357,48 +307,96 @@ function renderTracksList(tracks, container) {
       </div>
     `;
 
-    // Row click triggers audio playback
     row.addEventListener("click", () => {
-      // Find the index of the track in current playlist
-      const playlistIndex = currentTrackList.findIndex(t => t.id === track.id);
-      if (playlistIndex !== -1) {
-        currentSongIndex = playlistIndex;
-        loadAndPlayTrack();
-      } else {
-        currentTrackList = [track];
-        currentSongIndex = 0;
-        loadAndPlayTrack();
-      }
+      currentTrackList = [...tracks];
+      currentSongIndex = index;
+      loadAndPlayTrack();
     });
 
     container.appendChild(row);
   });
 }
 
-function loadCategory(genre) {
-  const filtered = songDatabase.filter(t => t.genre === genre);
-  currentTrackList = filtered;
-  currentSongIndex = 0;
-  
-  // Set hero details based on genre
+// Loads category playlist from iTunes API dynamically
+async function loadCategory(genre) {
+  let apiQuery = "";
+  let displayTitle = "";
+  let displayDesc = "";
+
+  switch (genre) {
+    case 'Punjabi':
+      apiQuery = "Diljit Dosanjh Karan Aujla AP Dhillon Shubh";
+      displayTitle = "Latest Punjabi Hits";
+      displayDesc = "The ultimate bhangra, beats, and punjabi pop trends. Get them as ringtones for ₹19 INR!";
+      break;
+    case 'Retro':
+      apiQuery = "Kishore Kumar Lata Mangeshkar RD Burman Rafi";
+      displayTitle = "Retro Classics (60s, 70s & 80s)";
+      displayDesc = "Timeless melodies from the golden era of Indian music. Relive the hits on your phone ring.";
+      break;
+    case 'Bollywood':
+      apiQuery = "Alka Yagnik Kumar Sanu Udit Narayan 90s bollywood";
+      displayTitle = "90s Bollywood Hits";
+      displayDesc = "The melodious romantic decade of Hindi cinema. Pick your favorite love theme.";
+      break;
+    case 'Haryanvi':
+      apiQuery = "Sapna Choudhary Raju Punjabi Haryanvi Hits";
+      displayTitle = "Latest Haryanvi Beats";
+      displayDesc = "High bass and local rhythmic hooks. Turn any track into a custom ringtone.";
+      break;
+    default:
+      apiQuery = "Trending Hits";
+      displayTitle = "Trending Hits";
+      displayDesc = "Global trends and popular tracks.";
+  }
+
+  // Update Hero details
   const heroTitle = document.getElementById("hero-title");
   const heroDesc = document.getElementById("hero-desc");
-  heroTitle.innerText = `${genre} Playlist Hits`;
-  heroDesc.innerText = `Premium selections of the finest ${genre.toLowerCase()} beats. Unlock ringtones for standard devices instantly.`;
+  heroTitle.innerText = displayTitle;
+  heroDesc.innerText = displayDesc;
+
+  // Show loading indicator in main tracks list
+  homeTrackListContainer.innerHTML = `<div class="spinner" style="margin: 40px auto;"></div>`;
+
+  const results = await fetchFromiTunes(apiQuery, 20);
   
-  renderTracksList(filtered, homeTrackListContainer);
-  loadAndPlayTrack();
+  if (results.length > 0) {
+    songDatabase = results;
+    currentTrackList = [...songDatabase];
+    renderTracksList(songDatabase, homeTrackListContainer);
+    currentSongIndex = 0;
+    loadAndPlayTrack();
+  } else {
+    homeTrackListContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px;">Could not load playlist items. Check connection.</div>`;
+  }
+  
   switchView("home");
 }
 
 function updateLibraryView() {
   // Liked songs grid
-  const likedTracks = songDatabase.filter(t => likedSongs.has(t.id));
+  const likedTracks = currentTrackList.filter(t => likedSongs.has(t.id));
   renderTracksList(likedTracks, libraryLikedContainer);
 
   // Unlocked Ringtone elements
   libraryRingtonesContainer.innerHTML = "";
-  if (purchasedRingtones.size === 0) {
+  
+  // Find all purchased items in current list or overall DB
+  const purchasedSongs = [];
+  purchasedRingtones.forEach(id => {
+    // Attempt to search in current memory database
+    let song = songDatabase.find(s => s.id === id);
+    if (!song) {
+      // Find in liked list or mock
+      song = fallbackSongs.find(s => s.id === id);
+    }
+    if (song) {
+      purchasedSongs.push(song);
+    }
+  });
+
+  if (purchasedSongs.length === 0) {
     libraryRingtonesContainer.innerHTML = `
       <div style="color: var(--text-muted); font-size: 0.9rem; padding: 24px; text-align: center; border: 1px dashed var(--glass-border); border-radius: 12px;">
         You haven't unlocked any ringtones yet. Unlock songs for ₹19 INR to see them here!
@@ -407,39 +405,40 @@ function updateLibraryView() {
     return;
   }
 
-  songDatabase.forEach(track => {
-    if (purchasedRingtones.has(track.id)) {
-      const ringtoneCard = document.createElement("div");
-      ringtoneCard.className = "unlocked-item";
-      ringtoneCard.innerHTML = `
-        <div class="unlocked-item-info">
-          <img src="${track.cover}" alt="${track.title}">
-          <div class="track-detail-text">
-            <span class="track-title" style="font-size: 0.85rem;">${track.title}</span>
-            <span class="track-artist" style="font-size: 0.75rem;">${track.artist}</span>
-          </div>
+  purchasedSongs.forEach(track => {
+    const ringtoneCard = document.createElement("div");
+    ringtoneCard.className = "unlocked-item";
+    ringtoneCard.innerHTML = `
+      <div class="unlocked-item-info">
+        <img src="${track.cover}" alt="${track.title}">
+        <div class="track-detail-text">
+          <span class="track-title" style="font-size: 0.85rem;">${track.title}</span>
+          <span class="track-artist" style="font-size: 0.75rem;">${track.artist}</span>
         </div>
-        <div class="unlocked-actions">
-          <button class="btn-mini" onclick="playMockRingtonePreview('${track.id}')">
-            <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: #fff;"><path d="M8 5v14l11-7z"/></svg>
-            <span>Play Preview</span>
-          </button>
-          <a class="btn-mini btn-mini-download" href="${track.url}" download="${track.title} Ringtone.mp3" style="text-decoration: none;">
-            <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: #000;"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
-            <span>Download MP3</span>
-          </a>
-        </div>
-      `;
-      libraryRingtonesContainer.appendChild(ringtoneCard);
-    }
+      </div>
+      <div class="unlocked-actions">
+        <button class="btn-mini" onclick="playMockRingtonePreview('${track.id}')">
+          <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: #fff;"><path d="M8 5v14l11-7z"/></svg>
+          <span>Play Preview</span>
+        </button>
+        <a class="btn-mini btn-mini-download" href="${track.url}" download="${track.title} Ringtone.mp3" style="text-decoration: none;">
+          <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: #000;"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+          <span>Download MP3</span>
+        </a>
+      </div>
+    `;
+    libraryRingtonesContainer.appendChild(ringtoneCard);
   });
 }
 
 function playMockRingtonePreview(songId) {
-  const song = songDatabase.find(s => s.id === songId);
+  // Check fallback list or database
+  let song = songDatabase.find(s => s.id === songId);
+  if (!song) song = fallbackSongs.find(s => s.id === songId);
+  
   if (song) {
     audio.src = song.url;
-    audio.currentTime = 15; // start preview from 15th second for ringtone effect
+    audio.currentTime = 0;
     audio.play();
     isPlaying = true;
     updatePlayerBar();
@@ -462,26 +461,19 @@ function loadAndPlayTrack() {
       renderLyrics();
     })
     .catch(error => {
-      console.error("Playback failed", error);
+      console.error("Playback failed:", error);
       isPlaying = false;
       updatePlayerBar();
     });
 
-  // Re-render active lists to show highlights
+  // Re-render views
   renderTracksList(currentTrackList, homeTrackListContainer);
-  if (viewSearch.classList.contains("active")) {
-    const term = searchInput.value.toLowerCase().trim();
-    if (term) {
-      filterSearch(term);
-    }
-  }
   updateLibraryView();
 }
 
 function togglePlay() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) {
-    // Play first song in list
     if (currentTrackList.length > 0) {
       currentSongIndex = 0;
       loadAndPlayTrack();
@@ -571,7 +563,7 @@ function renderLyrics() {
   paneLyrics.innerHTML = "";
   
   if (!currentSong || !currentSong.lyrics) {
-    paneLyrics.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding-top: 40px;">No lyrics available.</div>`;
+    paneLyrics.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding-top: 40px;">Play a track to display lyrics.</div>`;
     return;
   }
 
@@ -605,7 +597,6 @@ function updateLyricsHighlight(time) {
     if (activeLine && !activeLine.classList.contains("active")) {
       activeLine.classList.add("active");
       
-      // Smooth scroll lyrics panel to active line
       const paneHeight = paneLyrics.clientHeight;
       const offsetTop = activeLine.offsetTop;
       paneLyrics.scrollTo({
@@ -641,12 +632,12 @@ function updateQueueView() {
     paneQueue.appendChild(qItem);
     
     count++;
-    if (count >= 5) break; // show maximum 5 upcoming tracks
+    if (count >= 5) break;
   }
 }
 
 // --- SEARCH & FILTER LOGIC ---
-function filterSearch(query) {
+async function filterSearch(query) {
   if (!query) {
     searchResultsContainer.innerHTML = `
       <div style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 40px 0;">
@@ -656,35 +647,46 @@ function filterSearch(query) {
     return;
   }
 
-  const results = songDatabase.filter(track => 
-    track.title.toLowerCase().includes(query) || 
-    track.artist.toLowerCase().includes(query) ||
-    track.album.toLowerCase().includes(query)
-  );
+  // Display loading spinner
+  searchResultsContainer.innerHTML = `<div class="spinner" style="margin: 40px auto;"></div>`;
+
+  const results = await fetchFromiTunes(query, 25);
+  
+  if (results.length === 0) {
+    searchResultsContainer.innerHTML = `
+      <div style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 40px 0;">
+        No results found for "${query}" on Apple Music. Try searching different keywords.
+      </div>
+    `;
+    return;
+  }
 
   renderTracksList(results, searchResultsContainer);
 }
 
 // --- RINGTONE PURCHASE & MONETIZATION FLOW ---
 function openPaymentModal(songId) {
-  const song = songDatabase.find(s => s.id === songId);
+  // Search in local playlists
+  let song = currentTrackList.find(s => s.id === songId);
+  if (!song) song = songDatabase.find(s => s.id === songId);
+  if (!song) song = fallbackSongs.find(s => s.id === songId);
   if (!song) return;
 
   activeSongToPurchase = song;
 
-  // Check if already unlocked. If unlocked, trigger direct download
+  // Trigger direct download if already unlocked
   if (purchasedRingtones.has(songId)) {
     triggerDownload(song);
     return;
   }
 
-  // Set modal fields
+  // Set modal texts
   paymentSongName.innerText = `Configure "${song.title}" as your phone ringtone`;
   successMessage.innerText = `The premium ringtone cut for "${song.title}" by ${song.artist} has been activated successfully! You can download the MP3 directly, or manage it in your library.`;
   btnDownloadRingtone.href = song.url;
   btnDownloadRingtone.setAttribute("download", `${song.title} Ringtone.mp3`);
 
-  // Generate UPI QR Code dynamically using standard QR Code API
+  // Build UPI QR Code link
   const upiUrl = `upi://pay?pa=antigravity@ybl&pn=Antigravity&am=19&cu=INR&tn=Ringtone_${song.id}`;
   qrCodeImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`;
 
@@ -693,7 +695,6 @@ function openPaymentModal(songId) {
   payStepProcessing.style.display = "none";
   payStepSuccess.style.display = "none";
 
-  // Show Modal
   paymentModal.classList.add("open");
 }
 
@@ -703,18 +704,17 @@ function processSimulatedPayment() {
   payStepDetails.style.display = "none";
   payStepProcessing.style.display = "flex";
 
-  // Simulate server transaction confirmation delay
+  // Simulate payment confirmation
   setTimeout(() => {
     payStepProcessing.style.display = "none";
     payStepSuccess.style.display = "flex";
     
-    // Unlock ringtone
     purchasedRingtones.add(activeSongToPurchase.id);
     localStorage.setItem('purchasedRingtones', JSON.stringify(Array.from(purchasedRingtones)));
     
     showToast(`Successfully purchased "${activeSongToPurchase.title}" ringtone!`, true);
     
-    // Refresh track lists
+    // Refresh interfaces
     renderTracksList(currentTrackList, homeTrackListContainer);
     if (viewSearch.classList.contains("active")) {
       const term = searchInput.value.toLowerCase().trim();
@@ -748,11 +748,8 @@ function showToast(message, isSuccess = true) {
   `;
 
   toastContainer.appendChild(toast);
-  
-  // Animate Entrance
   setTimeout(() => toast.classList.add("show"), 50);
 
-  // Remove Toast
   setTimeout(() => {
     toast.classList.remove("show");
     setTimeout(() => toast.remove(), 300);
@@ -761,26 +758,23 @@ function showToast(message, isSuccess = true) {
 
 // --- EVENT LISTENERS SETUP ---
 function setupEventListeners() {
-  // Startup ad dismiss
   btnContinueApp.addEventListener("click", dismissStartupAd);
 
-  // Sidebar navigation
   navHome.addEventListener("click", () => switchView("home"));
   navSearch.addEventListener("click", () => switchView("search"));
   navLibrary.addEventListener("click", () => switchView("library"));
 
-  // Interactive search logic
-  searchInput.addEventListener("input", (e) => {
+  // Interactive search logic with dynamic API query triggers
+  searchInput.addEventListener("input", async (e) => {
     const query = e.target.value.toLowerCase().trim();
     if (query.length > 0) {
       switchView("search");
-      filterSearch(query);
+      await filterSearch(query);
     } else {
       switchView("home");
     }
   });
 
-  // Audio Engine event hooks
   audio.addEventListener("timeupdate", () => {
     if (!audio.duration) return;
     const progressPercent = (audio.currentTime / audio.duration) * 100;
@@ -802,7 +796,6 @@ function setupEventListeners() {
     }
   });
 
-  // Playback control button listeners
   btnPlay.addEventListener("click", togglePlay);
   btnNext.addEventListener("click", skipNext);
   btnPrev.addEventListener("click", skipPrev);
@@ -829,7 +822,6 @@ function setupEventListeners() {
     }
   });
 
-  // Timeline seeking click listener
   timeline.addEventListener("click", (e) => {
     if (!audio.duration) return;
     const rect = timeline.getBoundingClientRect();
@@ -838,7 +830,6 @@ function setupEventListeners() {
     audio.currentTime = percent * audio.duration;
   });
 
-  // Volume bar click listener
   volumeSlider.addEventListener("click", (e) => {
     const rect = volumeSlider.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -848,7 +839,6 @@ function setupEventListeners() {
     showToast(`Volume: ${Math.round(percent * 100)}%`);
   });
 
-  // Right sidebar tab toggle
   tabLyrics.addEventListener("click", () => {
     tabLyrics.classList.add("active");
     tabQueue.classList.remove("active");
@@ -864,7 +854,6 @@ function setupEventListeners() {
     updateQueueView();
   });
 
-  // Payment popup tab switches
   tabUpi.addEventListener("click", () => {
     tabUpi.classList.add("active");
     tabCard.classList.remove("active");
@@ -879,11 +868,9 @@ function setupEventListeners() {
     paneUpi.classList.remove("active");
   });
 
-  // Payment submissions
   btnSubmitUpi.addEventListener("click", processSimulatedPayment);
   btnSubmitCard.addEventListener("click", processSimulatedPayment);
   
-  // Close buttons
   btnPaymentClose.addEventListener("click", () => {
     paymentModal.classList.remove("open");
   });
@@ -892,7 +879,6 @@ function setupEventListeners() {
     paymentModal.classList.remove("open");
   });
 
-  // Close modal when clicking outside background overlay
   paymentModal.addEventListener("click", (e) => {
     if (e.target === paymentModal) {
       paymentModal.classList.remove("open");
@@ -900,7 +886,6 @@ function setupEventListeners() {
   });
 }
 
-// --- CONVENIENCE HELPERS ---
 function formatTime(seconds) {
   if (isNaN(seconds)) return "0:00";
   const mins = Math.floor(seconds / 60);
