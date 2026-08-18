@@ -1,4 +1,4 @@
-// --- STATIC FALLBACK DATABASE (In case API is offline) ---
+// --- STATIC FALLBACK DATABASE ---
 const fallbackSongs = [
   {
     id: "fb_1",
@@ -7,17 +7,7 @@ const fallbackSongs = [
     album: "Study Session Vol. 1",
     genre: "Lofi",
     cover: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    lyrics: [
-      { time: 0, text: "[Instrumental Intro]" },
-      { time: 10, text: "Lost in the neon lights of the city..." },
-      { time: 25, text: "Midnight vibe takes over my mind." },
-      { time: 40, text: "Coffee cup warm, code running clean..." },
-      { time: 55, text: "Floating away, standard lofi dream." },
-      { time: 70, text: "[Chill Saxophone Solo]" },
-      { time: 95, text: "No worries tonight, just flow." },
-      { time: 120, text: "[Outro Beats]" }
-    ]
+    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
   },
   {
     id: "fb_2",
@@ -26,16 +16,7 @@ const fallbackSongs = [
     album: "Grid Runner",
     genre: "Electronic",
     cover: "https://images.unsplash.com/photo-1515462277126-270d878326e5?w=300&auto=format&fit=crop&q=80",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    lyrics: [
-      { time: 0, text: "[Analog Synth Lead]" },
-      { time: 15, text: "Riding the grid, out of time." },
-      { time: 30, text: "Chasing the sunset on a neon highway." },
-      { time: 45, text: "Digital skies, lasers in your eyes." },
-      { time: 60, text: "Can you feel the frequency rising?" },
-      { time: 80, text: "[Guitar Synth Harmony]" },
-      { time: 110, text: "Reaching the horizon..." }
-    ]
+    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
   }
 ];
 
@@ -48,10 +29,20 @@ let isShuffle = false;
 let isRepeat = false;
 let likedSongs = new Set(JSON.parse(localStorage.getItem('likedSongs')) || []);
 let purchasedRingtones = new Set(JSON.parse(localStorage.getItem('purchasedRingtones')) || []);
+let purchasedRingtonesTrimTimes = JSON.parse(localStorage.getItem('purchasedRingtonesTrimTimes')) || {};
 let currentLyrics = [];
 let adTimeRemaining = 15;
 let adTimerInterval = null;
 let activeSongToPurchase = null;
+
+// YouTube states
+let ytPlayer = null;
+let isYTReady = false;
+let progressInterval = null;
+
+// Trimmer states
+let trimStartTime = 0;
+let isPreviewingTrim = false;
 
 // --- DOM ELEMENTS ---
 const audio = document.getElementById("audio-engine");
@@ -120,6 +111,12 @@ const btnDownloadRingtone = document.getElementById("btn-download-ringtone");
 const btnSuccessDone = document.getElementById("btn-success-done");
 const toastContainer = document.getElementById("toast-container");
 
+// Trimmer elements
+const trimSlider = document.getElementById("trim-slider");
+const trimRangeDisplay = document.getElementById("trim-range-display");
+const btnPreviewTrim = document.getElementById("btn-preview-trim");
+const btnPreviewTrimText = document.getElementById("btn-preview-trim-text");
+
 // --- INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", () => {
   startStartupAd();
@@ -129,9 +126,51 @@ document.addEventListener("DOMContentLoaded", () => {
   // Set default volume
   audio.volume = 0.7;
 
+  // Load YouTube IFrame API script dynamically
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
   // Load trending music from API on startup
   initAppMusic();
 });
+
+// --- YOUTUBE PLAYER BOOTSTRAP ---
+window.onYouTubeIframeAPIReady = function() {
+  ytPlayer = new YT.Player('youtube-player-container', {
+    height: '1',
+    width: '1',
+    videoId: '',
+    playerVars: {
+      'playsinline': 1,
+      'controls': 0,
+      'disablekb': 1,
+      'fs': 0,
+      'rel': 0,
+      'origin': window.location.origin
+    },
+    events: {
+      'onReady': () => {
+        isYTReady = true;
+        console.log("YouTube Background Player API Ready");
+      },
+      'onStateChange': onYTPlayerStateChange
+    }
+  });
+};
+
+function onYTPlayerStateChange(event) {
+  // YT.PlayerState.ENDED = 0, PLAYING = 1, PAUSED = 2
+  if (event.data === YT.PlayerState.ENDED) {
+    if (isRepeat) {
+      ytPlayer.seekTo(0);
+      ytPlayer.playVideo();
+    } else {
+      skipNext();
+    }
+  }
+}
 
 // --- API SEARCH UTILITY ---
 async function fetchFromiTunes(query, limit = 30) {
@@ -139,9 +178,7 @@ async function fetchFromiTunes(query, limit = 30) {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}`);
     const data = await response.json();
     
-    // Map iTunes track results to our structured schema
     return data.results.map(item => {
-      // Get higher resolution artwork
       const hdCover = item.artworkUrl100 
         ? item.artworkUrl100.replace("100x100bb.jpg", "500x500bb.jpg") 
         : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80";
@@ -155,33 +192,33 @@ async function fetchFromiTunes(query, limit = 30) {
         url: item.previewUrl,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
-    }).filter(track => track.url); // only include tracks with valid playable streams
+    }).filter(track => track.url);
   } catch (error) {
     console.error("iTunes API error:", error);
     return [];
   }
 }
 
-// Generate synced lyrics dynamically based on track titles
 function generateSimulatedLyrics(title, artist) {
   return [
     { time: 0, text: `[Playing: ${title}]` },
     { time: 4, text: `Artist: ${artist}` },
     { time: 8, text: "[Melodic Music intro playing...]" },
     { time: 13, text: "Welcome to Spotify Glass Premium!" },
-    { time: 18, text: "Did you know you can set this track as your ringtone?" },
-    { time: 24, text: "Click the 🔔 Set Ringtone button to activate for only ₹19 INR!" },
-    { time: 30, text: "Thank you for watching the sponsor ad to support free streaming." },
-    { time: 35, text: "[Instrumental Beats Outro]" }
+    { time: 20, text: "Listen to the FULL song streamed directly from YouTube." },
+    { time: 27, text: "Click the 🔔 Set Ringtone button to trim any 30s window!" },
+    { time: 35, text: "Adjust the start time slider inside the payment modal." },
+    { time: 45, text: "Thank you for watching the sponsor ad to support free streaming." },
+    { time: 60, text: "[Guitar/Sitar solo playing...]" },
+    { time: 85, text: "Enjoy your custom ringtone download after activation!" },
+    { time: 120, text: "[Outro Beats]" }
   ];
 }
 
-// Fetch trending hits from Hindi, Punjabi, and Haryanvi on load
 async function initAppMusic() {
   const categories = ["Diljit Dosanjh", "Trending Hindi", "Haryanvi Hits", "Arijit Singh Hits"];
   let loadedTracks = [];
   
-  // Run queries in parallel for fast loading
   try {
     const fetchPromises = categories.map(cat => fetchFromiTunes(cat, 5));
     const results = await Promise.all(fetchPromises);
@@ -192,7 +229,6 @@ async function initAppMusic() {
     console.error("Failed to load initial music from API:", err);
   }
 
-  // Shuffle loading results
   loadedTracks.sort(() => Math.random() - 0.5);
 
   if (loadedTracks.length > 0) {
@@ -204,7 +240,6 @@ async function initAppMusic() {
   currentTrackList = [...songDatabase];
   renderTracksList(songDatabase, homeTrackListContainer);
   
-  // Set default details in player bar
   currentSongIndex = 0;
   updatePlayerBar();
   renderLyrics();
@@ -221,7 +256,6 @@ function startStartupAd() {
   adProgressFill.style.width = "0%";
   adTimerText.innerText = "Please wait 15 seconds to continue.";
 
-  // Force trigger layout calculation for CSS transitions
   setTimeout(() => {
     adProgressFill.style.transition = "width 15s linear";
     adProgressFill.style.width = "100%";
@@ -296,7 +330,7 @@ function renderTracksList(tracks, container) {
         </div>
       </div>
       <div class="track-album">${track.album}</div>
-      <div class="track-duration">0:30</div>
+      <div class="track-duration">Full Song</div>
       <div class="track-actions" onclick="event.stopPropagation();">
         <button class="btn-ringtone ${isUnlocked ? 'unlocked' : ''}" onclick="openPaymentModal('${track.id}')">
           <svg viewBox="0 0 24 24">
@@ -317,7 +351,6 @@ function renderTracksList(tracks, container) {
   });
 }
 
-// Loads category playlist from iTunes API dynamically
 async function loadCategory(genre) {
   let apiQuery = "";
   let displayTitle = "";
@@ -327,36 +360,30 @@ async function loadCategory(genre) {
     case 'Punjabi':
       apiQuery = "Diljit Dosanjh Karan Aujla AP Dhillon Shubh";
       displayTitle = "Latest Punjabi Hits";
-      displayDesc = "The ultimate bhangra, beats, and punjabi pop trends. Get them as ringtones for ₹19 INR!";
+      displayDesc = "The ultimate bhangra, beats, and punjabi pop trends. Play full songs & trim ringtones.";
       break;
     case 'Retro':
       apiQuery = "Kishore Kumar Lata Mangeshkar RD Burman Rafi";
       displayTitle = "Retro Classics (60s, 70s & 80s)";
-      displayDesc = "Timeless melodies from the golden era of Indian music. Relive the hits on your phone ring.";
+      displayDesc = "Timeless melodies from the golden era of Indian music. Select any 30s cut.";
       break;
     case 'Bollywood':
       apiQuery = "Alka Yagnik Kumar Sanu Udit Narayan 90s bollywood";
       displayTitle = "90s Bollywood Hits";
-      displayDesc = "The melodious romantic decade of Hindi cinema. Pick your favorite love theme.";
+      displayDesc = "The melodious romantic decade of Hindi cinema. Play full length tracks.";
       break;
     case 'Haryanvi':
-      apiQuery = "Sapna Choudhary Raju Punjabi Haryanvi Hits";
+      apiQuery = "Sapna Choudhary Raju Haryanvi Hits";
       displayTitle = "Latest Haryanvi Beats";
-      displayDesc = "High bass and local rhythmic hooks. Turn any track into a custom ringtone.";
+      displayDesc = "High bass and local rhythmic hooks. Trimmable ringtone activation.";
       break;
-    default:
-      apiQuery = "Trending Hits";
-      displayTitle = "Trending Hits";
-      displayDesc = "Global trends and popular tracks.";
   }
 
-  // Update Hero details
   const heroTitle = document.getElementById("hero-title");
   const heroDesc = document.getElementById("hero-desc");
   heroTitle.innerText = displayTitle;
   heroDesc.innerText = displayDesc;
 
-  // Show loading indicator in main tracks list
   homeTrackListContainer.innerHTML = `<div class="spinner" style="margin: 40px auto;"></div>`;
 
   const results = await fetchFromiTunes(apiQuery, 20);
@@ -370,27 +397,19 @@ async function loadCategory(genre) {
   } else {
     homeTrackListContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px;">Could not load playlist items. Check connection.</div>`;
   }
-  
   switchView("home");
 }
 
 function updateLibraryView() {
-  // Liked songs grid
   const likedTracks = currentTrackList.filter(t => likedSongs.has(t.id));
   renderTracksList(likedTracks, libraryLikedContainer);
 
-  // Unlocked Ringtone elements
   libraryRingtonesContainer.innerHTML = "";
-  
-  // Find all purchased items in current list or overall DB
   const purchasedSongs = [];
+  
   purchasedRingtones.forEach(id => {
-    // Attempt to search in current memory database
     let song = songDatabase.find(s => s.id === id);
-    if (!song) {
-      // Find in liked list or mock
-      song = fallbackSongs.find(s => s.id === id);
-    }
+    if (!song) song = fallbackSongs.find(s => s.id === id);
     if (song) {
       purchasedSongs.push(song);
     }
@@ -406,6 +425,7 @@ function updateLibraryView() {
   }
 
   purchasedSongs.forEach(track => {
+    const startS = purchasedRingtonesTrimTimes[track.id] || 0;
     const ringtoneCard = document.createElement("div");
     ringtoneCard.className = "unlocked-item";
     ringtoneCard.innerHTML = `
@@ -414,6 +434,9 @@ function updateLibraryView() {
         <div class="track-detail-text">
           <span class="track-title" style="font-size: 0.85rem;">${track.title}</span>
           <span class="track-artist" style="font-size: 0.75rem;">${track.artist}</span>
+          <span style="font-size: 0.7rem; color: var(--cyan-accent); font-weight: bold; margin-top: 2px;">
+            🔔 Ringtone Cut: ${formatTime(startS)} - ${formatTime(startS + 30)}
+          </span>
         </div>
       </div>
       <div class="unlocked-actions">
@@ -432,26 +455,80 @@ function updateLibraryView() {
 }
 
 function playMockRingtonePreview(songId) {
-  // Check fallback list or database
   let song = songDatabase.find(s => s.id === songId);
   if (!song) song = fallbackSongs.find(s => s.id === songId);
-  
-  if (song) {
+  if (!song) return;
+
+  const startS = purchasedRingtonesTrimTimes[songId] || 0;
+
+  // Pause everything else
+  audio.pause();
+  if (isYTReady && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+
+  if (isYTReady && ytPlayer && ytPlayer.loadPlaylist) {
+    const query = `${song.title} ${song.artist} audio`;
+    ytPlayer.loadPlaylist({
+      list: query,
+      listType: 'search',
+      index: 0,
+      startSeconds: startS
+    });
+    isPlaying = true;
+    isPreviewingTrim = true;
+    trimStartTime = startS;
+    btnPreviewTrimText.innerText = "Stop Trim Preview";
+    updatePlayerBar();
+  } else {
     audio.src = song.url;
     audio.currentTime = 0;
     audio.play();
     isPlaying = true;
     updatePlayerBar();
-    showToast(`Playing preview for ${song.title} ringtone...`);
   }
+  showToast(`Playing 30s preview for ${song.title} ringtone...`);
 }
 
-// --- MUSIC PLAYER CONTROLS ---
+// --- MUSIC PLAYBACK CONTROL ENGINE ---
 function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
 
-  audio.src = currentSong.url;
+  // Stop previous polling
+  if (progressInterval) clearInterval(progressInterval);
+  audio.pause();
+
+  // If YouTube Player API is loaded, play full track via search index cue
+  if (isYTReady && ytPlayer && ytPlayer.loadPlaylist) {
+    const searchQuery = `${currentSong.title} ${currentSong.artist} audio`;
+    
+    try {
+      ytPlayer.loadPlaylist({
+        list: searchQuery,
+        listType: 'search',
+        index: 0,
+        startSeconds: 0
+      });
+      isPlaying = true;
+      updatePlayerBar();
+      updateQueueView();
+      renderLyrics();
+      
+      // Start timeline update interval
+      progressInterval = setInterval(trackPlaybackProgress, 500);
+    } catch (e) {
+      console.warn("YouTube play failed, falling back to Audio:", e);
+      fallbackToHtmlAudio(currentSong);
+    }
+  } else {
+    fallbackToHtmlAudio(currentSong);
+  }
+
+  renderTracksList(currentTrackList, homeTrackListContainer);
+  updateLibraryView();
+}
+
+function fallbackToHtmlAudio(track) {
+  audio.src = track.url;
   audio.load();
   audio.play()
     .then(() => {
@@ -459,16 +536,40 @@ function loadAndPlayTrack() {
       updatePlayerBar();
       updateQueueView();
       renderLyrics();
+      progressInterval = setInterval(trackPlaybackProgress, 500);
     })
-    .catch(error => {
-      console.error("Playback failed:", error);
+    .catch(err => {
+      console.error("Audio engine failed entirely:", err);
       isPlaying = false;
       updatePlayerBar();
     });
+}
 
-  // Re-render views
-  renderTracksList(currentTrackList, homeTrackListContainer);
-  updateLibraryView();
+function trackPlaybackProgress() {
+  let cur = 0;
+  let dur = 0;
+
+  if (isYTReady && ytPlayer && ytPlayer.getPlayerState && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING && !audio.paused === false) {
+    cur = ytPlayer.getCurrentTime() || 0;
+    dur = ytPlayer.getDuration() || 180; // default 3m if not ready
+  } else {
+    cur = audio.currentTime || 0;
+    dur = audio.duration || 30;
+  }
+
+  // Handle trim preview boundary check
+  if (isPreviewingTrim && cur >= trimStartTime + 30) {
+    stopTrimPreview();
+    return;
+  }
+
+  if (dur) {
+    const progressPercent = (cur / dur) * 100;
+    timelineProgress.style.width = `${progressPercent}%`;
+    timeCurrent.innerText = formatTime(cur);
+    timeDuration.innerText = formatTime(dur);
+    updateLyricsHighlight(cur);
+  }
 }
 
 function togglePlay() {
@@ -482,10 +583,17 @@ function togglePlay() {
   }
 
   if (isPlaying) {
+    if (isYTReady && ytPlayer && ytPlayer.pauseVideo) {
+      ytPlayer.pauseVideo();
+    }
     audio.pause();
     isPlaying = false;
   } else {
-    audio.play().catch(() => {});
+    if (isYTReady && ytPlayer && ytPlayer.playVideo) {
+      ytPlayer.playVideo();
+    } else {
+      audio.play().catch(() => {});
+    }
     isPlaying = true;
   }
   updatePlayerBar();
@@ -513,7 +621,6 @@ function updatePlayerBar() {
     btnLikeCurrent.classList.remove("liked");
   }
 
-  // Update ringtone action button text based on unlock status
   if (purchasedRingtones.has(currentSong.id)) {
     btnPlayerRingtone.querySelector("span").innerText = "Download Ringtone";
     btnPlayerRingtone.style.background = "linear-gradient(135deg, var(--spotify-green) 0%, #158f3f 100%)";
@@ -533,7 +640,9 @@ function skipNext() {
 }
 
 function skipPrev() {
-  if (audio.currentTime > 3) {
+  let cur = (isYTReady && ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : audio.currentTime;
+  if (cur > 3) {
+    if (isYTReady && ytPlayer && ytPlayer.seekTo) ytPlayer.seekTo(0);
     audio.currentTime = 0;
   } else {
     currentSongIndex = (currentSongIndex - 1 + currentTrackList.length) % currentTrackList.length;
@@ -541,20 +650,45 @@ function skipPrev() {
   }
 }
 
-function toggleLikeCurrent() {
-  const currentSong = currentTrackList[currentSongIndex];
-  if (!currentSong) return;
+// --- RINGTONE TRIMMER CONTROLS ---
+function startTrimPreview() {
+  if (!activeSongToPurchase) return;
 
-  if (likedSongs.has(currentSong.id)) {
-    likedSongs.delete(currentSong.id);
-    showToast("Removed from Liked Songs");
+  // Stop active playback first
+  audio.pause();
+  if (isYTReady && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+
+  isPreviewingTrim = true;
+  btnPreviewTrimText.innerText = "Stop Preview";
+
+  if (isYTReady && ytPlayer && ytPlayer.loadPlaylist) {
+    const query = `${activeSongToPurchase.title} ${activeSongToPurchase.artist} audio`;
+    ytPlayer.loadPlaylist({
+      list: query,
+      listType: 'search',
+      index: 0,
+      startSeconds: trimStartTime
+    });
+    isPlaying = true;
   } else {
-    likedSongs.add(currentSong.id);
-    showToast("Added to Liked Songs", true);
+    audio.src = activeSongToPurchase.url;
+    audio.currentTime = trimStartTime;
+    audio.play().catch(() => {});
+    isPlaying = true;
   }
-  localStorage.setItem('likedSongs', JSON.stringify(Array.from(likedSongs)));
   updatePlayerBar();
-  updateLibraryView();
+  showToast(`Previewing 30s ringtone from ${formatTime(trimStartTime)}...`);
+}
+
+function stopTrimPreview() {
+  isPreviewingTrim = false;
+  btnPreviewTrimText.innerText = "Preview 30s Ringtone Trim";
+
+  if (isYTReady && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+  audio.pause();
+  isPlaying = false;
+  updatePlayerBar();
+  showToast("Preview stopped.");
 }
 
 // --- DYNAMIC LYRICS & QUEUE ---
@@ -563,7 +697,7 @@ function renderLyrics() {
   paneLyrics.innerHTML = "";
   
   if (!currentSong || !currentSong.lyrics) {
-    paneLyrics.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding-top: 40px;">Play a track to display lyrics.</div>`;
+    paneLyrics.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding-top: 40px;">Lyrics unavailable.</div>`;
     return;
   }
 
@@ -647,7 +781,6 @@ async function filterSearch(query) {
     return;
   }
 
-  // Display loading spinner
   searchResultsContainer.innerHTML = `<div class="spinner" style="margin: 40px auto;"></div>`;
 
   const results = await fetchFromiTunes(query, 25);
@@ -666,7 +799,6 @@ async function filterSearch(query) {
 
 // --- RINGTONE PURCHASE & MONETIZATION FLOW ---
 function openPaymentModal(songId) {
-  // Search in local playlists
   let song = currentTrackList.find(s => s.id === songId);
   if (!song) song = songDatabase.find(s => s.id === songId);
   if (!song) song = fallbackSongs.find(s => s.id === songId);
@@ -674,15 +806,34 @@ function openPaymentModal(songId) {
 
   activeSongToPurchase = song;
 
-  // Trigger direct download if already unlocked
+  // Trigger download if already unlocked
   if (purchasedRingtones.has(songId)) {
     triggerDownload(song);
     return;
   }
 
-  // Set modal texts
+  // Determine song duration to configure trimmer slider bounds
+  let trackDuration = 180; // default 3 minutes fallback
+  if (isYTReady && ytPlayer && ytPlayer.getDuration && ytPlayer.getDuration() > 0) {
+    // If it's the current song playing on YouTube, get its actual duration
+    const currentSong = currentTrackList[currentSongIndex];
+    if (currentSong && currentSong.id === songId) {
+      trackDuration = ytPlayer.getDuration();
+    }
+  } else if (!isNaN(audio.duration) && audio.src === song.url) {
+    trackDuration = audio.duration;
+  }
+
+  // Setup Trimmer bounds (Ringtone is exactly 30s, so max start is duration - 30)
+  const maxStart = Math.max(0, Math.floor(trackDuration - 30));
+  trimSlider.max = maxStart;
+  trimSlider.value = 0;
+  trimStartTime = 0;
+  trimRangeDisplay.innerText = `0:00 - 0:30`;
+
+  // Set modal text configurations
   paymentSongName.innerText = `Configure "${song.title}" as your phone ringtone`;
-  successMessage.innerText = `The premium ringtone cut for "${song.title}" by ${song.artist} has been activated successfully! You can download the MP3 directly, or manage it in your library.`;
+  successMessage.innerText = `The premium 30-second ringtone cut for "${song.title}" by ${song.artist} has been activated successfully! You can download the MP3 directly, or manage it in your library.`;
   btnDownloadRingtone.href = song.url;
   btnDownloadRingtone.setAttribute("download", `${song.title} Ringtone.mp3`);
 
@@ -704,13 +855,21 @@ function processSimulatedPayment() {
   payStepDetails.style.display = "none";
   payStepProcessing.style.display = "flex";
 
-  // Simulate payment confirmation
+  // Simulate payment confirmation delay
   setTimeout(() => {
     payStepProcessing.style.display = "none";
     payStepSuccess.style.display = "flex";
     
+    // Save unlocked states
     purchasedRingtones.add(activeSongToPurchase.id);
+    purchasedRingtonesTrimTimes[activeSongToPurchase.id] = trimStartTime;
+
     localStorage.setItem('purchasedRingtones', JSON.stringify(Array.from(purchasedRingtones)));
+    localStorage.setItem('purchasedRingtonesTrimTimes', JSON.stringify(purchasedRingtonesTrimTimes));
+    
+    // Update success screen details with specific trim details
+    const endSec = trimStartTime + 30;
+    successMessage.innerText = `The premium 30-second ringtone cut (${formatTime(trimStartTime)} - ${formatTime(endSec)}) for "${activeSongToPurchase.title}" by ${activeSongToPurchase.artist} has been unlocked successfully!`;
     
     showToast(`Successfully purchased "${activeSongToPurchase.title}" ringtone!`, true);
     
@@ -726,7 +885,8 @@ function processSimulatedPayment() {
 }
 
 function triggerDownload(song) {
-  showToast(`Downloading ringtone for ${song.title}...`, true);
+  const startS = purchasedRingtonesTrimTimes[song.id] || 0;
+  showToast(`Downloading ringtone cut (${formatTime(startS)} - ${formatTime(startS+30)}) for ${song.title}...`, true);
   const a = document.createElement('a');
   a.href = song.url;
   a.download = `${song.title} Ringtone.mp3`;
@@ -764,7 +924,6 @@ function setupEventListeners() {
   navSearch.addEventListener("click", () => switchView("search"));
   navLibrary.addEventListener("click", () => switchView("library"));
 
-  // Interactive search logic with dynamic API query triggers
   searchInput.addEventListener("input", async (e) => {
     const query = e.target.value.toLowerCase().trim();
     if (query.length > 0) {
@@ -775,27 +934,57 @@ function setupEventListeners() {
     }
   });
 
-  audio.addEventListener("timeupdate", () => {
-    if (!audio.duration) return;
-    const progressPercent = (audio.currentTime / audio.duration) * 100;
-    timelineProgress.style.width = `${progressPercent}%`;
-    timeCurrent.innerText = formatTime(audio.currentTime);
-    updateLyricsHighlight(audio.currentTime);
-  });
+  // Timeline seeking click listener
+  timeline.addEventListener("click", (e) => {
+    const rect = timeline.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
 
-  audio.addEventListener("loadedmetadata", () => {
-    timeDuration.innerText = formatTime(audio.duration);
-  });
-
-  audio.addEventListener("ended", () => {
-    if (isRepeat) {
-      audio.currentTime = 0;
-      audio.play().catch(() => {});
+    let dur = 0;
+    if (isYTReady && ytPlayer && ytPlayer.getDuration && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) {
+      dur = ytPlayer.getDuration() || 180;
+      ytPlayer.seekTo(percent * dur, true);
     } else {
-      skipNext();
+      dur = audio.duration || 30;
+      audio.currentTime = percent * dur;
     }
   });
 
+  // Volume bar click listener
+  volumeSlider.addEventListener("click", (e) => {
+    const rect = volumeSlider.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
+    
+    if (isYTReady && ytPlayer && ytPlayer.setVolume) {
+      ytPlayer.setVolume(percent * 100);
+    }
+    audio.volume = percent;
+    volumeProgress.style.width = `${percent * 100}%`;
+    showToast(`Volume: ${Math.round(percent * 100)}%`);
+  });
+
+  // Trimmer slider input listener
+  trimSlider.addEventListener("input", (e) => {
+    trimStartTime = parseInt(e.target.value);
+    const end = trimStartTime + 30;
+    trimRangeDisplay.innerText = `${formatTime(trimStartTime)} - ${formatTime(end)}`;
+    
+    if (isPreviewingTrim) {
+      stopTrimPreview();
+    }
+  });
+
+  // Trimmer preview button listener
+  btnPreviewTrim.addEventListener("click", () => {
+    if (isPreviewingTrim) {
+      stopTrimPreview();
+    } else {
+      startTrimPreview();
+    }
+  });
+
+  // Playback control button listeners
   btnPlay.addEventListener("click", togglePlay);
   btnNext.addEventListener("click", skipNext);
   btnPrev.addEventListener("click", skipPrev);
@@ -822,23 +1011,7 @@ function setupEventListeners() {
     }
   });
 
-  timeline.addEventListener("click", (e) => {
-    if (!audio.duration) return;
-    const rect = timeline.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
-    audio.currentTime = percent * audio.duration;
-  });
-
-  volumeSlider.addEventListener("click", (e) => {
-    const rect = volumeSlider.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
-    audio.volume = percent;
-    volumeProgress.style.width = `${percent * 100}%`;
-    showToast(`Volume: ${Math.round(percent * 100)}%`);
-  });
-
+  // Sidebar right tabs toggle
   tabLyrics.addEventListener("click", () => {
     tabLyrics.classList.add("active");
     tabQueue.classList.remove("active");
@@ -854,6 +1027,7 @@ function setupEventListeners() {
     updateQueueView();
   });
 
+  // Payment modal tabs
   tabUpi.addEventListener("click", () => {
     tabUpi.classList.add("active");
     tabCard.classList.remove("active");
@@ -868,19 +1042,24 @@ function setupEventListeners() {
     paneUpi.classList.remove("active");
   });
 
+  // Submissions
   btnSubmitUpi.addEventListener("click", processSimulatedPayment);
   btnSubmitCard.addEventListener("click", processSimulatedPayment);
   
+  // Closes
   btnPaymentClose.addEventListener("click", () => {
+    stopTrimPreview();
     paymentModal.classList.remove("open");
   });
 
   btnSuccessDone.addEventListener("click", () => {
+    stopTrimPreview();
     paymentModal.classList.remove("open");
   });
 
   paymentModal.addEventListener("click", (e) => {
     if (e.target === paymentModal) {
+      stopTrimPreview();
       paymentModal.classList.remove("open");
     }
   });

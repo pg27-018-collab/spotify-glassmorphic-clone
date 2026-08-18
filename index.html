@@ -322,6 +322,22 @@
           <span class="price-desc">one-time activation fee</span>
         </div>
 
+        <!-- Trimmer Section -->
+        <div class="trimmer-section" style="margin-bottom: 20px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px;">
+          <div style="font-size: 0.8rem; font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>1. Select 30s Ringtone Window</span>
+            <span id="trim-range-display" style="color: var(--cyan-accent); font-family: monospace;">0:00 - 0:30</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <span style="font-size: 0.75rem; color: var(--text-muted); width: 32px;">Start:</span>
+            <input id="trim-slider" type="range" min="0" max="100" value="0" style="flex: 1; accent-color: var(--premium-purple); cursor: pointer; height: 4px; border-radius: 2px;">
+          </div>
+          <button id="btn-preview-trim" class="btn-mini" style="background: rgba(157, 78, 237, 0.15); border-color: var(--premium-purple); width: 100%; padding: 8px;">
+            <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: #fff; margin-right: 4px;"><path d="M8 5v14l11-7z"/></svg>
+            <span id="btn-preview-trim-text">Preview 30s Ringtone Trim</span>
+          </button>
+        </div>
+
         <div class="payment-tabs">
           <div id="tab-upi" class="pay-tab active">UPI QR (Fast)</div>
           <div id="tab-card" class="pay-tab">Credit/Debit Card</div>
@@ -395,6 +411,9 @@
 
   <!-- Toast Notification System -->
   <div id="toast-container" class="toast-container"></div>
+
+  <!-- Hidden YouTube Player Container -->
+  <div id="youtube-player-container" style="position: absolute; top: -9999px; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></div>
 
   <!-- HTML Audio element used to play tracks natively -->
   <audio id="audio-engine"></audio>
