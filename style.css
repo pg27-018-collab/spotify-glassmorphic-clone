@@ -258,6 +258,7 @@ body {
   border-bottom: 1px solid var(--glass-border);
   background: rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 10;
 }
 
@@ -984,6 +985,7 @@ body {
   transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
   backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
 }
 
 .modal-overlay.open .modal-content {
@@ -1463,6 +1465,7 @@ body {
   background: rgba(22, 16, 38, 0.85);
   border: 1px solid var(--premium-purple);
   backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   padding: 12px 20px;
   border-radius: 10px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -1494,6 +1497,53 @@ body {
   font-weight: 500;
 }
 
+/* Mobile Navigation styling */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(10, 15, 30, 0.92);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-top: 1px solid var(--glass-border);
+  justify-content: space-around;
+  align-items: center;
+  z-index: 10000;
+  padding-bottom: env(safe-area-inset-bottom, 10px);
+}
+
+.mobile-nav-item {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+  padding: 6px 12px;
+}
+
+.mobile-nav-item svg {
+  color: var(--text-muted);
+  transition: transform 0.2s, color 0.2s;
+}
+
+.mobile-nav-item.active {
+  color: #fff;
+}
+
+.mobile-nav-item.active svg {
+  transform: scale(1.1);
+  color: var(--spotify-green);
+}
+
 /* Mobile Responsiveness styling */
 @media (max-width: 992px) {
   .app-main {
@@ -1518,24 +1568,100 @@ body {
     display: none;
   }
   .search-bar-container {
-    width: 200px;
+    width: 100%;
+    max-width: 280px;
   }
   .featured-banner {
-    height: 180px;
-    padding: 20px;
+    height: 160px;
+    padding: 16px;
   }
   .featured-banner h1 {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
   }
   .track-album {
     display: none;
   }
-  .player-bar {
-    grid-template-columns: 1fr;
-    justify-content: center;
-    padding: 10px;
+  
+  /* Show Mobile Bottom Nav */
+  .mobile-bottom-nav {
+    display: flex;
   }
+  
+  /* Increase padding at bottom of main view to clear the floating elements */
+  .main-content {
+    padding-bottom: 150px !important;
+  }
+
+  /* Floating Premium Mobile Player Bar */
+  .player-bar {
+    position: fixed !important;
+    bottom: 74px !important; /* Float above bottom nav */
+    left: 8px !important;
+    right: 8px !important;
+    width: calc(100% - 16px) !important;
+    height: 64px !important;
+    border-radius: 12px !important;
+    background: rgba(15, 20, 40, 0.88) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid var(--glass-border) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 0 16px !important;
+    z-index: 9999 !important;
+    grid-template-columns: none !important;
+  }
+
   .player-track-info {
-    display: none;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    max-width: 60% !important;
+  }
+
+  .player-track-info img {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 6px !important;
+  }
+
+  .player-track-info .track-detail-text {
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .player-track-info .track-title {
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+  }
+
+  .player-track-info .track-artist {
+    font-size: 0.65rem !important;
+    color: var(--text-muted) !important;
+  }
+
+  /* Compact Controls for Mobile Player */
+  .player-middle-controls {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .player-timeline-container {
+    display: none !important; /* Hide seeker bar on mini mobile card */
+  }
+
+  .player-left-controls button:not(#btn-play):not(#btn-next) {
+    display: none !important; /* Hide shuffle/prev/repeat from mini control card */
+  }
+
+  .player-left-controls {
+    gap: 12px !important;
   }
 }

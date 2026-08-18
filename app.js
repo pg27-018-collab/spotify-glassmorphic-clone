@@ -264,15 +264,24 @@ function switchView(viewName) {
   [viewHome, viewSearch, viewLibrary].forEach(view => view.classList.remove("active"));
   [navHome, navSearch, navLibrary].forEach(nav => nav.classList.remove("active"));
 
+  // Mobile bottom nav buttons
+  const mHome = document.getElementById("mobile-nav-home");
+  const mSearch = document.getElementById("mobile-nav-search");
+  const mLibrary = document.getElementById("mobile-nav-library");
+  [mHome, mSearch, mLibrary].forEach(m => m && m.classList.remove("active"));
+
   if (viewName === "home") {
     viewHome.classList.add("active");
     navHome.classList.add("active");
+    if (mHome) mHome.classList.add("active");
   } else if (viewName === "search") {
     viewSearch.classList.add("active");
     navSearch.classList.add("active");
+    if (mSearch) mSearch.classList.add("active");
   } else if (viewName === "library") {
     viewLibrary.classList.add("active");
     navLibrary.classList.add("active");
+    if (mLibrary) mLibrary.classList.add("active");
     updateLibraryView();
   }
 }
@@ -830,6 +839,15 @@ function setupEventListeners() {
       initAppMusic();
     }
   });
+
+  // Mobile bottom navigation triggers
+  const mHome = document.getElementById("mobile-nav-home");
+  const mSearch = document.getElementById("mobile-nav-search");
+  const mLibrary = document.getElementById("mobile-nav-library");
+  
+  if (mHome) mHome.addEventListener("click", () => switchView("home"));
+  if (mSearch) mSearch.addEventListener("click", () => switchView("search"));
+  if (mLibrary) mLibrary.addEventListener("click", () => switchView("library"));
 }
 
 function formatTime(seconds) {
