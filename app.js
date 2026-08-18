@@ -63,47 +63,45 @@ document.addEventListener("DOMContentLoaded", () => {
   initAppMusic();
 });
 
-// --- API FETCH UTILITIES (Self-Healing Mirrors) ---
+// --- API FETCH UTILITIES (Self-Healing & Lazy-Loading) ---
 async function fetchMusic(query, limit = 20) {
-  // Try JioSaavn API mirrors for FULL songs first
-  const saavnMirrors = [
-    "https://saavn.clubelements.workers.dev/api",
-    "https://saavn.dev/api",
-    "https://jiosaavn-api.vercel.app/api"
-  ];
+  const base = "https://jiosaavn-api.vercel.app";
+  
+  try {
+    const url = `${base}/api/search?query=${encodeURIComponent(query)}`;
+    const response = await fetch(url);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        console.log("Fetched song metadata from JioSaavn Search API");
+        return data.results.map(item => {
+          const coverUrl = item.images && item.images["500x500"] 
+            ? item.images["500x500"] 
+            : (item.image || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80");
+            
+          const artistsName = item.more_info ? item.more_info.singers : "Unknown Artist";
 
-  for (const base of saavnMirrors) {
-    try {
-      const url = `${base}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`;
-      const response = await fetch(url);
-      if (response.ok) {
-        const json = await response.json();
-        if (json.success && json.data && json.data.results && json.data.results.length > 0) {
-          console.log(`Fetched full tracks from JioSaavn mirror: ${base}`);
-          return json.data.results.map(item => {
-            const coverObj = item.image.find(img => img.quality === "500x500") || item.image[item.image.length - 1];
-            const audioObj = item.downloadUrl.find(aud => aud.quality === "160kbps") || item.downloadUrl[item.downloadUrl.length - 1];
-            return {
-              id: String(item.id),
-              title: item.name,
-              artist: item.primaryArtists || "Unknown Artist",
-              album: item.album ? item.album.name : "Single",
-              cover: coverObj ? coverObj.url : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80",
-              url: audioObj ? audioObj.url : "",
-              duration: item.duration || 180,
-              isFullSong: true,
-              lyrics: generateSimulatedLyrics(item.name, item.primaryArtists || "Unknown Artist")
-            };
-          }).filter(track => track.url);
-        }
+          return {
+            id: String(item.id),
+            title: item.title,
+            artist: artistsName,
+            album: item.album || "Single",
+            cover: coverUrl,
+            url: "", // Direct audio stream will be lazy-loaded on play
+            duration: 180, // Default duration fallback
+            isFullSong: true,
+            fallbackUrl: "",
+            lyrics: generateSimulatedLyrics(item.title, artistsName)
+          };
+        });
       }
-    } catch (e) {
-      console.warn(`JioSaavn mirror ${base} failed:`, e);
     }
+  } catch (e) {
+    console.warn("JioSaavn search failed, falling back to iTunes API:", e);
   }
 
-  // Fallback to iTunes Search API (which provides 30s previews) if all full-song mirrors are rate-limited or offline
-  console.log("JioSaavn mirrors unavailable. Falling back to iTunes Search API.");
+  // Fallback to iTunes Search API if JioSaavn API is offline
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}`);
     const data = await response.json();
@@ -118,9 +116,10 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        url: item.previewUrl,
+        url: item.previewUrl, // 30s iTunes preview
         duration: 30,
         isFullSong: false,
+        fallbackUrl: item.previewUrl,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
     }).filter(track => track.url);
@@ -145,6 +144,20 @@ function generateSimulatedLyrics(title, artist) {
     { time: 85, text: "Adjust progress and volume slider controls dynamically." },
     { time: 120, text: "[Outro Beats]" }
   ];
+}
+
+// Helper to parse duration string (e.g. "3:34" or 214) into seconds
+function parseDurationString(dur) {
+  if (!dur) return 180;
+  if (typeof dur === "number") return dur;
+  
+  const parts = String(dur).split(":").map(Number);
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  } else if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return parseInt(dur) || 180;
 }
 
 // Fetch trending hits from Hindi, Punjabi, and Haryanvi on load
@@ -301,33 +314,68 @@ function updateLibraryView() {
 }
 
 // --- MUSIC PLAYBACK CONTROL ENGINE ---
-function loadAndPlayTrack() {
+async function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
 
   if (progressInterval) clearInterval(progressInterval);
 
-  audio.src = currentSong.url;
-  audio.load();
-  audio.play()
-    .then(() => {
-      isPlaying = true;
-      updatePlayerBar();
-      updateQueueView();
-      renderLyrics();
-      progressInterval = setInterval(trackPlaybackProgress, 500);
-    })
-    .catch(err => {
-      console.error("Playback failed:", err);
-      isPlaying = false;
-      updatePlayerBar();
-    });
+  try {
+    showToast(`Loading "${currentSong.title}"...`, true);
+
+    // Lazy-load direct full audio streams from the JioSaavn API
+    if (currentSong.isFullSong && !currentSong.url) {
+      const detailsUrl = `https://jiosaavn-api.vercel.app/api/song?id=${currentSong.id}`;
+      const response = await fetch(detailsUrl);
+      if (response.ok) {
+        const detailsData = await response.json();
+        const songInfo = detailsData.results ? detailsData.results[0] : detailsData;
+        
+        if (songInfo && songInfo.media_url) {
+          currentSong.url = songInfo.media_url;
+          currentSong.duration = parseDurationString(songInfo.duration);
+        } else {
+          console.warn("Direct stream URL missing in API. Using fallback.");
+        }
+      }
+    }
+
+    // Playback
+    audio.src = currentSong.url || currentSong.fallbackUrl;
+    audio.load();
+    audio.play()
+      .then(() => {
+        isPlaying = true;
+        updatePlayerBar();
+        updateQueueView();
+        renderLyrics();
+        progressInterval = setInterval(trackPlaybackProgress, 500);
+      })
+      .catch(err => {
+        console.error("Native playback failed, attempting fallback:", err);
+        // Attempt fallback if available
+        if (currentSong.fallbackUrl && audio.src !== currentSong.fallbackUrl) {
+          audio.src = currentSong.fallbackUrl;
+          audio.play().then(() => {
+            isPlaying = true;
+            updatePlayerBar();
+          }).catch(e => {
+            console.error("Playback fallback failed:", e);
+            isPlaying = false;
+            updatePlayerBar();
+          });
+        } else {
+          isPlaying = false;
+          updatePlayerBar();
+        }
+      });
+  } catch (err) {
+    console.error("Playback engine setup failed:", err);
+    isPlaying = false;
+    updatePlayerBar();
+  }
 
   renderTracksList(currentTrackList, homeTrackListContainer);
-  if (viewSearch.classList.contains("active")) {
-    const term = searchInput.value.toLowerCase().trim();
-    if (term) filterSearch(term);
-  }
   updateLibraryView();
 }
 
@@ -451,6 +499,7 @@ function renderLyrics() {
   });
 }
 
+// Track lyrics scrolling
 function updateLyricsHighlight(time) {
   if (currentLyrics.length === 0) return;
 
@@ -481,6 +530,7 @@ function updateLyricsHighlight(time) {
   }
 }
 
+// Queue view updating
 function updateQueueView() {
   paneQueue.innerHTML = "";
   if (currentTrackList.length <= 1) {
