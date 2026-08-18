@@ -73,10 +73,10 @@ document.addEventListener("DOMContentLoaded", () => {
 // --- YOUTUBE PLAYER BOOTSTRAP ---
 window.onYouTubeIframeAPIReady = function() {
   ytPlayer = new YT.Player('youtube-player', {
-    videoId: 'dQw4w9WgXcQ', // default silent/dummy starting video
+    videoId: 'dQw4w9WgXcQ', // default silent starting video
     playerVars: {
       'autoplay': 0,
-      'controls': 1, // Let user toggle controls on video frame directly if they want
+      'controls': 1,
       'playsinline': 1,
       'rel': 0
     },
@@ -89,7 +89,7 @@ window.onYouTubeIframeAPIReady = function() {
 
 function onPlayerReady(event) {
   isYTReady = true;
-  console.log("YouTube Player is ready.");
+  console.log("YouTube Visible Player Connected");
   ytPlayer.unMute();
   ytPlayer.setVolume(userVolume);
 }
@@ -115,6 +115,37 @@ function onYTPlayerStateChange(event) {
   }
 }
 
+// --- KEYLESS YOUTUBE SEARCH SCRAPER (Piped API Mirror Pool) ---
+async function searchYouTubeVideoId(query) {
+  const mirrors = [
+    "https://api.piped.private.coffee",
+    "https://pipedapi.kavin.rocks",
+    "https://piped-api.lunar.icu"
+  ];
+  
+  for (const base of mirrors) {
+    try {
+      const url = `${base}/search?q=${encodeURIComponent(query)}&filter=all`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        // Find first item that is a standard stream/video
+        const video = data.find(item => item.type === "stream");
+        if (video && video.url) {
+          const match = video.url.match(/v=([a-zA-Z0-9_-]{11})/);
+          if (match) {
+            console.log(`Found YouTube video ID: ${match[1]} from mirror ${base}`);
+            return match[1];
+          }
+        }
+      }
+    } catch(e) {
+      console.warn(`Piped mirror ${base} failed for query "${query}":`, e);
+    }
+  }
+  return null;
+}
+
 // --- API FETCH UTILITY (iTunes Search) ---
 async function fetchMusic(query, limit = 20) {
   try {
@@ -131,7 +162,7 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        duration: 240, // default placeholder, gets updated on play
+        duration: 240, // default placeholder
         isFullSong: true,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
@@ -311,41 +342,45 @@ function updateLibraryView() {
 }
 
 // --- MUSIC PLAYBACK CONTROL ENGINE ---
-function loadAndPlayTrack() {
+async function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
 
   if (progressInterval) clearInterval(progressInterval);
 
-  showToast(`Streaming "${currentSong.title}"...`, true);
+  showToast(`Locating video for "${currentSong.title}"...`, true);
 
   const query = `${currentSong.title} ${currentSong.artist} audio`;
 
-  // Use programmatic search list loading on the existing iframe document to bypass autoplay muting!
-  if (isYTReady && ytPlayer && ytPlayer.loadPlaylist) {
-    try {
-      ytPlayer.loadPlaylist({
-        list: query,
-        listType: 'search',
-        index: 0,
-        startSeconds: 0
-      });
-      // Force unmute and set the current user volume
-      ytPlayer.unMute();
-      ytPlayer.setVolume(userVolume);
-      
-      isPlaying = true;
-      updatePlayerBar();
-      updateQueueView();
-      renderLyrics();
-      
-      progressInterval = setInterval(trackPlaybackProgress, 500);
-    } catch(e) {
-      console.error("Failed programmatic search load, reloading player iframe source:", e);
-      reloadIframeFallback(query);
-    }
+  // Get the precise YouTube videoId using Piped search scrape
+  const videoId = await searchYouTubeVideoId(query);
+
+  if (isYTReady && ytPlayer && ytPlayer.loadVideoById && videoId) {
+    console.log(`Loading precise YouTube Video ID: ${videoId}`);
+    ytPlayer.loadVideoById({
+      videoId: videoId,
+      startSeconds: 0
+    });
+    ytPlayer.unMute();
+    ytPlayer.setVolume(userVolume);
+    
+    isPlaying = true;
+    updatePlayerBar();
+    updateQueueView();
+    renderLyrics();
+    
+    progressInterval = setInterval(trackPlaybackProgress, 500);
   } else {
-    reloadIframeFallback(query);
+    // If exact video ID scrape fails, fall back to playlist search loading
+    console.warn("Exact YouTube Video ID fetch failed, falling back to search query URL loading");
+    const iframe = document.getElementById("youtube-player");
+    iframe.src = `https://www.youtube.com/embed?autoplay=1&listType=search&list=${encodeURIComponent(query)}&enablejsapi=1&origin=${window.location.origin}`;
+    
+    isPlaying = true;
+    updatePlayerBar();
+    updateQueueView();
+    renderLyrics();
+    progressInterval = setInterval(trackPlaybackProgress, 500);
   }
 
   renderTracksList(currentTrackList, homeTrackListContainer);
@@ -354,17 +389,6 @@ function loadAndPlayTrack() {
     if (term) filterSearch(term);
   }
   updateLibraryView();
-}
-
-function reloadIframeFallback(query) {
-  const iframe = document.getElementById("youtube-player");
-  // If loading source directly, add volume parameter cues if possible
-  iframe.src = `https://www.youtube.com/embed?autoplay=1&listType=search&list=${encodeURIComponent(query)}&enablejsapi=1&origin=${window.location.origin}`;
-  isPlaying = true;
-  updatePlayerBar();
-  updateQueueView();
-  renderLyrics();
-  progressInterval = setInterval(trackPlaybackProgress, 500);
 }
 
 function trackPlaybackProgress() {
