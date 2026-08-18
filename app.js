@@ -9,8 +9,11 @@ let likedSongs = new Set(JSON.parse(localStorage.getItem('likedSongs')) || []);
 let currentLyrics = [];
 let progressInterval = null;
 
+// YouTube player variables
+let ytPlayer = null;
+let isYTReady = false;
+
 // --- DOM ELEMENTS ---
-const audio = document.getElementById("audio-engine");
 const viewHome = document.getElementById("view-home");
 const viewSearch = document.getElementById("view-search");
 const viewLibrary = document.getElementById("view-library");
@@ -55,53 +58,59 @@ const toastContainer = document.getElementById("toast-container");
 document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   updateLibraryView();
-  
-  // Set default volume
-  audio.volume = 0.7;
 
-  // Load trending music on startup
+  // Load YouTube API script dynamically
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+  // Load initial trending music from API
   initAppMusic();
 });
 
-// --- API FETCH UTILITIES (Self-Healing & Lazy-Loading) ---
-async function fetchMusic(query, limit = 20) {
-  const base = "https://jiosaavn-api.vercel.app";
-  
-  try {
-    const url = `${base}/api/search?query=${encodeURIComponent(query)}`;
-    const response = await fetch(url);
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.results && data.results.length > 0) {
-        console.log("Fetched song metadata from JioSaavn Search API");
-        return data.results.map(item => {
-          const coverUrl = item.images && item.images["500x500"] 
-            ? item.images["500x500"] 
-            : (item.image || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80");
-            
-          const artistsName = item.more_info ? item.more_info.singers : "Unknown Artist";
-
-          return {
-            id: String(item.id),
-            title: item.title,
-            artist: artistsName,
-            album: item.album || "Single",
-            cover: coverUrl,
-            url: "", // Direct audio stream will be lazy-loaded on play
-            duration: 180, // Default duration fallback
-            isFullSong: true,
-            fallbackUrl: "",
-            lyrics: generateSimulatedLyrics(item.title, artistsName)
-          };
-        });
-      }
+// --- YOUTUBE PLAYER BOOTSTRAP ---
+window.onYouTubeIframeAPIReady = function() {
+  ytPlayer = new YT.Player('youtube-player', {
+    events: {
+      'onReady': onPlayerReady,
+      'onStateChange': onYTPlayerStateChange
     }
-  } catch (e) {
-    console.warn("JioSaavn search failed, falling back to iTunes API:", e);
-  }
+  });
+};
 
-  // Fallback to iTunes Search API if JioSaavn API is offline
+function onPlayerReady(event) {
+  isYTReady = true;
+  console.log("YouTube Visible Player API Connected");
+  // Set initial volume (70%)
+  if (ytPlayer.setVolume) {
+    ytPlayer.setVolume(70);
+  }
+}
+
+function onYTPlayerStateChange(event) {
+  // YT.PlayerState.PLAYING = 1, PAUSED = 2, ENDED = 0
+  if (event.data === YT.PlayerState.PLAYING) {
+    isPlaying = true;
+    updatePlayerBar();
+    if (!progressInterval) {
+      progressInterval = setInterval(trackPlaybackProgress, 500);
+    }
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    isPlaying = false;
+    updatePlayerBar();
+  } else if (event.data === YT.PlayerState.ENDED) {
+    if (isRepeat) {
+      ytPlayer.seekTo(0);
+      ytPlayer.playVideo();
+    } else {
+      skipNext();
+    }
+  }
+}
+
+// --- API FETCH UTILITY (iTunes Search) ---
+async function fetchMusic(query, limit = 20) {
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}`);
     const data = await response.json();
@@ -116,15 +125,13 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        url: item.previewUrl, // 30s iTunes preview
-        duration: 30,
-        isFullSong: false,
-        fallbackUrl: item.previewUrl,
+        duration: 240, // standard 4 mins default before video metadata load
+        isFullSong: true,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
-    }).filter(track => track.url);
+    });
   } catch (error) {
-    console.error("All music APIs failed:", error);
+    console.error("iTunes API fetch failed:", error);
     return [];
   }
 }
@@ -136,7 +143,7 @@ function generateSimulatedLyrics(title, artist) {
     { time: 4, text: `Artist: ${artist}` },
     { time: 8, text: "[Melodic Intro Playing...]" },
     { time: 13, text: "Welcome to Spotify Glass!" },
-    { time: 20, text: "Streaming high-fidelity full songs natively in your browser." },
+    { time: 20, text: "Streaming high-fidelity full songs natively via YouTube Companion." },
     { time: 28, text: "Click the Heart icon to save this song to your library." },
     { time: 35, text: "Toggle between scrolling lyrics and queue panels on the right side." },
     { time: 45, text: "Search for any Hindi, Punjabi, Haryanvi, or international track." },
@@ -146,26 +153,11 @@ function generateSimulatedLyrics(title, artist) {
   ];
 }
 
-// Helper to parse duration string (e.g. "3:34" or 214) into seconds
-function parseDurationString(dur) {
-  if (!dur) return 180;
-  if (typeof dur === "number") return dur;
-  
-  const parts = String(dur).split(":").map(Number);
-  if (parts.length === 2) {
-    return parts[0] * 60 + parts[1];
-  } else if (parts.length === 3) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  }
-  return parseInt(dur) || 180;
-}
-
-// Fetch trending hits from Hindi, Punjabi, and Haryanvi on load
+// Fetch trending hits on load
 async function initAppMusic() {
   const categories = ["Diljit Dosanjh Hits", "Trending Hindi Songs", "Haryanvi Hits", "Arijit Singh"];
   let loadedTracks = [];
   
-  // Show loading indicator
   homeTrackListContainer.innerHTML = `<div class="spinner" style="margin: 40px auto;"></div>`;
 
   try {
@@ -175,10 +167,9 @@ async function initAppMusic() {
       loadedTracks = [...loadedTracks, ...res];
     });
   } catch (err) {
-    console.error("Failed to load initial music from API:", err);
+    console.error("Failed to load initial music:", err);
   }
 
-  // Shuffle initial results
   loadedTracks.sort(() => Math.random() - 0.5);
 
   if (loadedTracks.length > 0) {
@@ -239,7 +230,7 @@ function renderTracksList(tracks, container) {
         </div>
       </div>
       <div class="track-album">${track.album}</div>
-      <div class="track-duration">${track.isFullSong ? 'Full Song' : 'Preview'}</div>
+      <div class="track-duration">Full Song</div>
       <div class="track-actions" onclick="event.stopPropagation();">
         <button class="btn-like ${likedSongs.has(track.id) ? 'liked' : ''}" onclick="toggleLike('${track.id}')">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;">
@@ -314,81 +305,53 @@ function updateLibraryView() {
 }
 
 // --- MUSIC PLAYBACK CONTROL ENGINE ---
-async function loadAndPlayTrack() {
+function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
 
   if (progressInterval) clearInterval(progressInterval);
 
-  try {
-    showToast(`Loading "${currentSong.title}"...`, true);
+  showToast(`Streaming "${currentSong.title}" from YouTube...`, true);
 
-    // Lazy-load direct full audio streams from the JioSaavn API
-    if (currentSong.isFullSong && !currentSong.url) {
-      const detailsUrl = `https://jiosaavn-api.vercel.app/api/song?id=${currentSong.id}`;
-      const response = await fetch(detailsUrl);
-      if (response.ok) {
-        const detailsData = await response.json();
-        const songInfo = detailsData.results ? detailsData.results[0] : detailsData;
-        
-        if (songInfo && songInfo.media_url) {
-          currentSong.url = songInfo.media_url;
-          currentSong.duration = parseDurationString(songInfo.duration);
-        } else {
-          console.warn("Direct stream URL missing in API. Using fallback.");
-        }
-      }
-    }
+  const query = `${currentSong.title} ${currentSong.artist} audio`;
 
-    // Playback
-    audio.src = currentSong.url || currentSong.fallbackUrl;
-    audio.load();
-    audio.play()
-      .then(() => {
-        isPlaying = true;
-        updatePlayerBar();
-        updateQueueView();
-        renderLyrics();
-        progressInterval = setInterval(trackPlaybackProgress, 500);
-      })
-      .catch(err => {
-        console.error("Native playback failed, attempting fallback:", err);
-        // Attempt fallback if available
-        if (currentSong.fallbackUrl && audio.src !== currentSong.fallbackUrl) {
-          audio.src = currentSong.fallbackUrl;
-          audio.play().then(() => {
-            isPlaying = true;
-            updatePlayerBar();
-          }).catch(e => {
-            console.error("Playback fallback failed:", e);
-            isPlaying = false;
-            updatePlayerBar();
-          });
-        } else {
-          isPlaying = false;
-          updatePlayerBar();
-        }
-      });
-  } catch (err) {
-    console.error("Playback engine setup failed:", err);
-    isPlaying = false;
-    updatePlayerBar();
-  }
+  // Set visible iframe source with autoplay and enablejsapi enabled
+  const iframe = document.getElementById("youtube-player");
+  iframe.src = `https://www.youtube.com/embed?autoplay=1&listType=search&list=${encodeURIComponent(query)}&enablejsapi=1&origin=${window.location.origin}`;
+
+  // Reset local state to playing
+  isPlaying = true;
+  updatePlayerBar();
+  updateQueueView();
+  renderLyrics();
+
+  // Poll progress from YouTube player API
+  progressInterval = setInterval(trackPlaybackProgress, 500);
 
   renderTracksList(currentTrackList, homeTrackListContainer);
+  if (viewSearch.classList.contains("active")) {
+    const term = searchInput.value.toLowerCase().trim();
+    if (term) filterSearch(term);
+  }
   updateLibraryView();
 }
 
 function trackPlaybackProgress() {
-  const cur = audio.currentTime || 0;
-  const dur = audio.duration || 0;
-
-  if (dur) {
-    const progressPercent = (cur / dur) * 100;
-    timelineProgress.style.width = `${progressPercent}%`;
-    timeCurrent.innerText = formatTime(cur);
-    timeDuration.innerText = formatTime(dur);
-    updateLyricsHighlight(cur);
+  if (isYTReady && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getDuration) {
+    try {
+      const cur = ytPlayer.getCurrentTime() || 0;
+      const dur = ytPlayer.getDuration() || 240; // fallback default
+      
+      if (dur) {
+        const progressPercent = (cur / dur) * 100;
+        timelineProgress.style.width = `${progressPercent}%`;
+        timeCurrent.innerText = formatTime(cur);
+        timeDuration.innerText = formatTime(dur);
+        updateLyricsHighlight(cur);
+      }
+    } catch(e) {
+      // Catch postMessage communication checks during iframe loading
+    }
   }
 }
 
@@ -403,10 +366,14 @@ function togglePlay() {
   }
 
   if (isPlaying) {
-    audio.pause();
+    if (isYTReady && ytPlayer && ytPlayer.pauseVideo) {
+      ytPlayer.pauseVideo();
+    }
     isPlaying = false;
   } else {
-    audio.play().catch(() => {});
+    if (isYTReady && ytPlayer && ytPlayer.playVideo) {
+      ytPlayer.playVideo();
+    }
     isPlaying = true;
   }
   updatePlayerBar();
@@ -445,8 +412,8 @@ function skipNext() {
 }
 
 function skipPrev() {
-  if (audio.currentTime > 3) {
-    audio.currentTime = 0;
+  if (isYTReady && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getCurrentTime() > 3) {
+    ytPlayer.seekTo(0, true);
   } else {
     currentSongIndex = (currentSongIndex - 1 + currentTrackList.length) % currentTrackList.length;
     loadAndPlayTrack();
@@ -499,7 +466,6 @@ function renderLyrics() {
   });
 }
 
-// Track lyrics scrolling
 function updateLyricsHighlight(time) {
   if (currentLyrics.length === 0) return;
 
@@ -530,7 +496,6 @@ function updateLyricsHighlight(time) {
   }
 }
 
-// Queue view updating
 function updateQueueView() {
   paneQueue.innerHTML = "";
   if (currentTrackList.length <= 1) {
@@ -625,18 +590,23 @@ function setupEventListeners() {
   });
 
   timeline.addEventListener("click", (e) => {
-    if (!audio.duration) return;
-    const rect = timeline.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
-    audio.currentTime = percent * audio.duration;
+    if (isYTReady && ytPlayer && ytPlayer.getDuration) {
+      const rect = timeline.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
+      const dur = ytPlayer.getDuration() || 240;
+      ytPlayer.seekTo(percent * dur, true);
+    }
   });
 
   volumeSlider.addEventListener("click", (e) => {
     const rect = volumeSlider.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
-    audio.volume = percent;
+    
+    if (isYTReady && ytPlayer && ytPlayer.setVolume) {
+      ytPlayer.setVolume(percent * 100);
+    }
     volumeProgress.style.width = `${percent * 100}%`;
     showToast(`Volume: ${Math.round(percent * 100)}%`);
   });
