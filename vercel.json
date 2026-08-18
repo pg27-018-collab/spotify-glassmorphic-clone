@@ -1,6 +1,16 @@
 {
   "version": 2,
   "regions": ["bom1"],
+  "builds": [
+    { "src": "api/proxy.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "style.css", "use": "@vercel/static" },
+    { "src": "web-app.js", "use": "@vercel/static" },
+    { "src": "manifest.json", "use": "@vercel/static" },
+    { "src": "sw.js", "use": "@vercel/static" },
+    { "src": "icon-192.png", "use": "@vercel/static" },
+    { "src": "icon-512.png", "use": "@vercel/static" }
+  ],
   "rewrites": [
     { "source": "/api/proxy", "destination": "/api/proxy.js" }
   ]
