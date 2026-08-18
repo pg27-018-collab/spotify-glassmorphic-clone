@@ -9,8 +9,12 @@ let likedSongs = new Set(JSON.parse(localStorage.getItem('likedSongs')) || []);
 let currentLyrics = [];
 let progressInterval = null;
 
+// YouTube player variables
+let ytPlayer = null;
+let isYTReady = false;
+let userVolume = 70; // 0 - 100
+
 // --- DOM ELEMENTS ---
-const audio = document.getElementById("audio-engine");
 const viewHome = document.getElementById("view-home");
 const viewSearch = document.getElementById("view-search");
 const viewLibrary = document.getElementById("view-library");
@@ -55,15 +59,63 @@ const toastContainer = document.getElementById("toast-container");
 document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   updateLibraryView();
-  
-  // Set default volume
-  audio.volume = 0.7;
+
+  // Load YouTube API script dynamically
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
   // Load initial trending music from API
   initAppMusic();
 });
 
-// --- API FETCH UTILITIES (iTunes Search Catalog) ---
+// --- YOUTUBE HIDDEN PLAYER BOOTSTRAP ---
+window.onYouTubeIframeAPIReady = function() {
+  ytPlayer = new YT.Player('youtube-player', {
+    videoId: 'dQw4w9WgXcQ', // default starting video (silent/paused on start)
+    playerVars: {
+      'autoplay': 0,
+      'controls': 0,
+      'playsinline': 1,
+      'rel': 0
+    },
+    events: {
+      'onReady': onPlayerReady,
+      'onStateChange': onYTPlayerStateChange
+    }
+  });
+};
+
+function onPlayerReady(event) {
+  isYTReady = true;
+  console.log("YouTube Background Audio Engine Connected");
+  ytPlayer.unMute();
+  ytPlayer.setVolume(userVolume);
+}
+
+function onYTPlayerStateChange(event) {
+  // YT.PlayerState.PLAYING = 1, PAUSED = 2, ENDED = 0
+  if (event.data === YT.PlayerState.PLAYING) {
+    isPlaying = true;
+    updatePlayerBar();
+    if (!progressInterval) {
+      progressInterval = setInterval(trackPlaybackProgress, 500);
+    }
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    isPlaying = false;
+    updatePlayerBar();
+  } else if (event.data === YT.PlayerState.ENDED) {
+    if (isRepeat) {
+      ytPlayer.seekTo(0, true);
+      ytPlayer.playVideo();
+    } else {
+      skipNext();
+    }
+  }
+}
+
+// --- API FETCH UTILITY (iTunes Search Catalog) ---
 async function fetchMusic(query, limit = 20) {
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}`);
@@ -79,16 +131,13 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        url: item.previewUrl,      // Valid iTunes preview stream
-        duration: 30,              // Initial preview duration
-        isFullSong: false,
-        isUpgraded: false,         // Upgrades to true when Saavn stream loads
-        fallbackUrl: item.previewUrl,
+        duration: 240, // Default display placeholder
+        isFullSong: true,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
-    }).filter(track => track.url);
+    });
   } catch (error) {
-    console.error("iTunes API search failed:", error);
+    console.error("Catalog search failed:", error);
     return [];
   }
 }
@@ -108,20 +157,6 @@ function generateSimulatedLyrics(title, artist) {
     { time: 85, text: "Adjust progress and volume slider controls dynamically." },
     { time: 120, text: "[Outro Beats]" }
   ];
-}
-
-// Helper to parse duration string (e.g. "3:34" or 214) into seconds
-function parseDurationString(dur) {
-  if (!dur) return 180;
-  if (typeof dur === "number") return dur;
-  
-  const parts = String(dur).split(":").map(Number);
-  if (parts.length === 2) {
-    return parts[0] * 60 + parts[1];
-  } else if (parts.length === 3) {
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  }
-  return parseInt(dur) || 180;
 }
 
 // Fetch trending hits on load
@@ -201,7 +236,7 @@ function renderTracksList(tracks, container) {
         </div>
       </div>
       <div class="track-album">${track.album}</div>
-      <div class="track-duration">${track.isFullSong ? 'Full Song' : 'Streaming'}</div>
+      <div class="track-duration">Full Song</div>
       <div class="track-actions" onclick="event.stopPropagation();">
         <button class="btn-like ${likedSongs.has(track.id) ? 'liked' : ''}" onclick="toggleLike('${track.id}')">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;">
@@ -275,100 +310,75 @@ function updateLibraryView() {
   renderTracksList(likedTracks, libraryLikedContainer);
 }
 
-// --- MUSIC PLAYBACK CONTROL ENGINE WITH DYNAMIC STREAM HOT-SWAPPING ---
+// --- HIDDEN YOUTUBE PLAYBACK ENGINE ---
 async function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
 
   if (progressInterval) clearInterval(progressInterval);
 
-  showToast(`Streaming "${currentSong.title}"...`, true);
+  showToast(`Locating track: "${currentSong.title}"...`, true);
 
-  // 1. Play the iTunes preview URL instantly so music starts playing under 100ms!
-  audio.src = currentSong.url;
-  audio.load();
-  audio.play()
-    .then(() => {
-      isPlaying = true;
-      updatePlayerBar();
-      updateQueueView();
-      renderLyrics();
-      progressInterval = setInterval(trackPlaybackProgress, 500);
-    })
-    .catch(err => {
-      console.error("Playback failed to start:", err);
+  // Targets the official studio release version ("Artist - Topic Title")
+  const query = `${currentSong.artist} - Topic ${currentSong.title}`;
+
+  if (isYTReady && ytPlayer && ytPlayer.loadPlaylist) {
+    console.log(`Streaming hidden background search for query: ${query}`);
+    ytPlayer.loadPlaylist({
+      list: query,
+      listType: 'search',
+      index: 0,
+      startSeconds: 0
     });
-
-  // 2. If already upgraded to full song, stop here
-  if (currentSong.isUpgraded) return;
-
-  // 3. Background call to locate and swap to JioSaavn full-length audio stream
-  try {
-    const searchQuery = `${currentSong.title} ${currentSong.artist}`;
-    const searchUrl = `https://jiosaavn-api.vercel.app/api/search?query=${encodeURIComponent(searchQuery)}`;
+    ytPlayer.unMute();
+    ytPlayer.setVolume(userVolume);
     
-    const response = await fetch(searchUrl);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.results && data.results.length > 0) {
-        const topResult = data.results[0];
-        
-        // Fetch song details
-        const detailsUrl = `https://jiosaavn-api.vercel.app/api/song?id=${topResult.id}`;
-        const detailRes = await fetch(detailsUrl);
-        if (detailRes.ok) {
-          const detailData = await detailRes.json();
-          const songInfo = detailData.results ? detailData.results[0] : detailData;
-          
-          // Get direct stream link
-          const fullMediaUrl = songInfo.media_url || (songInfo.media_urls && (songInfo.media_urls["320_KBPS"] || songInfo.media_urls["160_KBPS"]));
-          
-          if (fullMediaUrl) {
-            console.log("Upgrading stream to JioSaavn full-length track");
-            
-            // Capture current position to perform a seamless hot-swap
-            const currentPosition = audio.currentTime;
-            const wasPlaying = !audio.paused;
-            
-            currentSong.url = fullMediaUrl;
-            currentSong.duration = parseDurationString(songInfo.duration);
-            currentSong.isFullSong = true;
-            currentSong.isUpgraded = true;
-            
-            audio.src = fullMediaUrl;
-            audio.load();
-            audio.currentTime = currentPosition;
-            
-            if (wasPlaying) {
-              audio.play().catch(e => console.warn("Failed hot-swap autoplay:", e));
-            }
-            
-            // Re-render durations
-            updatePlayerBar();
-            renderTracksList(currentTrackList, homeTrackListContainer);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("JioSaavn full song upgrade failed (likely geoblocked/rate-limited). Continuing preview stream.");
+    isPlaying = true;
+    updatePlayerBar();
+    updateQueueView();
+    renderLyrics();
+    
+    progressInterval = setInterval(trackPlaybackProgress, 500);
+  } else {
+    console.warn("YouTube Player not fully initialized yet. Initializing swap.");
+    // Fallback reload iframe source in case API script fails to bootstrap
+    const iframe = document.getElementById("youtube-player");
+    iframe.src = `https://www.youtube.com/embed?autoplay=1&listType=search&list=${encodeURIComponent(query)}&enablejsapi=1&origin=${window.location.origin}`;
+    
+    isPlaying = true;
+    updatePlayerBar();
+    updateQueueView();
+    renderLyrics();
+    progressInterval = setInterval(trackPlaybackProgress, 500);
   }
+
+  renderTracksList(currentTrackList, homeTrackListContainer);
+  if (viewSearch.classList.contains("active")) {
+    const term = searchInput.value.toLowerCase().trim();
+    if (term) filterSearch(term);
+  }
+  updateLibraryView();
 }
 
 function trackPlaybackProgress() {
-  const cur = audio.currentTime || 0;
-  const dur = audio.duration || 0;
-
-  if (dur) {
-    const progressPercent = (cur / dur) * 100;
-    timelineProgress.style.width = `${progressPercent}%`;
-    timeCurrent.innerText = formatTime(cur);
-    timeDuration.innerText = formatTime(dur);
-    updateLyricsHighlight(cur);
-  } else {
-    // If duration not loaded yet, reset timeline texts to 0:00 or active values
-    timeCurrent.innerText = formatTime(cur);
-    timeDuration.innerText = "loading...";
+  if (isYTReady && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getDuration) {
+    try {
+      const cur = ytPlayer.getCurrentTime() || 0;
+      const dur = ytPlayer.getDuration() || 0;
+      
+      if (dur) {
+        const progressPercent = (cur / dur) * 100;
+        timelineProgress.style.width = `${progressPercent}%`;
+        timeCurrent.innerText = formatTime(cur);
+        timeDuration.innerText = formatTime(dur);
+        updateLyricsHighlight(cur);
+      } else {
+        timeCurrent.innerText = formatTime(cur);
+        timeDuration.innerText = "Loading...";
+      }
+    } catch(e) {
+      // Ignore communications checks before dynamic frame fully attaches
+    }
   }
 }
 
@@ -383,10 +393,14 @@ function togglePlay() {
   }
 
   if (isPlaying) {
-    audio.pause();
+    if (isYTReady && ytPlayer && ytPlayer.pauseVideo) {
+      ytPlayer.pauseVideo();
+    }
     isPlaying = false;
   } else {
-    audio.play().catch(() => {});
+    if (isYTReady && ytPlayer && ytPlayer.playVideo) {
+      ytPlayer.playVideo();
+    }
     isPlaying = true;
   }
   updatePlayerBar();
@@ -415,7 +429,6 @@ function updatePlayerBar() {
   }
 }
 
-// Skip actions
 function skipNext() {
   if (isShuffle) {
     currentSongIndex = Math.floor(Math.random() * currentTrackList.length);
@@ -426,8 +439,8 @@ function skipNext() {
 }
 
 function skipPrev() {
-  if (audio.currentTime > 3) {
-    audio.currentTime = 0;
+  if (isYTReady && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getCurrentTime() > 3) {
+    ytPlayer.seekTo(0, true);
   } else {
     currentSongIndex = (currentSongIndex - 1 + currentTrackList.length) % currentTrackList.length;
     loadAndPlayTrack();
@@ -480,6 +493,7 @@ function renderLyrics() {
   });
 }
 
+// Update lyrics scrolling position
 function updateLyricsHighlight(time) {
   if (currentLyrics.length === 0) return;
 
@@ -603,39 +617,14 @@ function setupEventListeners() {
     }
   });
 
-  // Audio metadata load event listener
-  audio.addEventListener("loadedmetadata", () => {
-    if (audio.duration) {
-      timeDuration.innerText = formatTime(audio.duration);
-    }
-  });
-
-  // Self-healing play error recovery listener
-  audio.addEventListener("error", (e) => {
-    console.warn("Audio element error event caught. Healing stream...");
-    const currentSong = currentTrackList[currentSongIndex];
-    if (currentSong && currentSong.isUpgraded && currentSong.fallbackUrl) {
-      showToast("Upgraded stream failed. Reverting to backup...", false);
-      currentSong.url = currentSong.fallbackUrl;
-      currentSong.isUpgraded = false;
-      currentSong.isFullSong = false;
-      currentSong.duration = 30;
-      
-      audio.src = currentSong.fallbackUrl;
-      audio.load();
-      audio.play().catch(err => console.error("Fallback recovery play blocked:", err));
-      
-      updatePlayerBar();
-      renderTracksList(currentTrackList, homeTrackListContainer);
-    }
-  });
-
   timeline.addEventListener("click", (e) => {
-    if (!audio.duration) return;
-    const rect = timeline.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
-    audio.currentTime = percent * audio.duration;
+    if (isYTReady && ytPlayer && ytPlayer.getDuration) {
+      const rect = timeline.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
+      const dur = ytPlayer.getDuration() || 0;
+      ytPlayer.seekTo(percent * dur, true);
+    }
   });
 
   volumeSlider.addEventListener("click", (e) => {
@@ -643,9 +632,13 @@ function setupEventListeners() {
     const clickX = e.clientX - rect.left;
     const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
     
-    audio.volume = percent;
-    volumeProgress.style.width = `${percent * 100}%`;
-    showToast(`Volume: ${Math.round(percent * 100)}%`);
+    userVolume = Math.round(percent * 100);
+    if (isYTReady && ytPlayer && ytPlayer.setVolume) {
+      ytPlayer.setVolume(userVolume);
+      ytPlayer.unMute();
+    }
+    volumeProgress.style.width = `${userVolume}%`;
+    showToast(`Volume: ${userVolume}%`);
   });
 
   btnPlay.addEventListener("click", togglePlay);
