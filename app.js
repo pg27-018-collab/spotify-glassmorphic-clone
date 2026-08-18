@@ -12,6 +12,7 @@ let progressInterval = null;
 // YouTube player variables
 let ytPlayer = null;
 let isYTReady = false;
+let userVolume = 70; // 0 - 100
 
 // --- DOM ELEMENTS ---
 const viewHome = document.getElementById("view-home");
@@ -72,6 +73,13 @@ document.addEventListener("DOMContentLoaded", () => {
 // --- YOUTUBE PLAYER BOOTSTRAP ---
 window.onYouTubeIframeAPIReady = function() {
   ytPlayer = new YT.Player('youtube-player', {
+    videoId: 'dQw4w9WgXcQ', // default silent/dummy starting video
+    playerVars: {
+      'autoplay': 0,
+      'controls': 1, // Let user toggle controls on video frame directly if they want
+      'playsinline': 1,
+      'rel': 0
+    },
     events: {
       'onReady': onPlayerReady,
       'onStateChange': onYTPlayerStateChange
@@ -81,11 +89,9 @@ window.onYouTubeIframeAPIReady = function() {
 
 function onPlayerReady(event) {
   isYTReady = true;
-  console.log("YouTube Visible Player API Connected");
-  // Set initial volume (70%)
-  if (ytPlayer.setVolume) {
-    ytPlayer.setVolume(70);
-  }
+  console.log("YouTube Player is ready.");
+  ytPlayer.unMute();
+  ytPlayer.setVolume(userVolume);
 }
 
 function onYTPlayerStateChange(event) {
@@ -101,7 +107,7 @@ function onYTPlayerStateChange(event) {
     updatePlayerBar();
   } else if (event.data === YT.PlayerState.ENDED) {
     if (isRepeat) {
-      ytPlayer.seekTo(0);
+      ytPlayer.seekTo(0, true);
       ytPlayer.playVideo();
     } else {
       skipNext();
@@ -125,7 +131,7 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        duration: 240, // standard 4 mins default before video metadata load
+        duration: 240, // default placeholder, gets updated on play
         isFullSong: true,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
@@ -311,22 +317,36 @@ function loadAndPlayTrack() {
 
   if (progressInterval) clearInterval(progressInterval);
 
-  showToast(`Streaming "${currentSong.title}" from YouTube...`, true);
+  showToast(`Streaming "${currentSong.title}"...`, true);
 
   const query = `${currentSong.title} ${currentSong.artist} audio`;
 
-  // Set visible iframe source with autoplay and enablejsapi enabled
-  const iframe = document.getElementById("youtube-player");
-  iframe.src = `https://www.youtube.com/embed?autoplay=1&listType=search&list=${encodeURIComponent(query)}&enablejsapi=1&origin=${window.location.origin}`;
-
-  // Reset local state to playing
-  isPlaying = true;
-  updatePlayerBar();
-  updateQueueView();
-  renderLyrics();
-
-  // Poll progress from YouTube player API
-  progressInterval = setInterval(trackPlaybackProgress, 500);
+  // Use programmatic search list loading on the existing iframe document to bypass autoplay muting!
+  if (isYTReady && ytPlayer && ytPlayer.loadPlaylist) {
+    try {
+      ytPlayer.loadPlaylist({
+        list: query,
+        listType: 'search',
+        index: 0,
+        startSeconds: 0
+      });
+      // Force unmute and set the current user volume
+      ytPlayer.unMute();
+      ytPlayer.setVolume(userVolume);
+      
+      isPlaying = true;
+      updatePlayerBar();
+      updateQueueView();
+      renderLyrics();
+      
+      progressInterval = setInterval(trackPlaybackProgress, 500);
+    } catch(e) {
+      console.error("Failed programmatic search load, reloading player iframe source:", e);
+      reloadIframeFallback(query);
+    }
+  } else {
+    reloadIframeFallback(query);
+  }
 
   renderTracksList(currentTrackList, homeTrackListContainer);
   if (viewSearch.classList.contains("active")) {
@@ -334,6 +354,17 @@ function loadAndPlayTrack() {
     if (term) filterSearch(term);
   }
   updateLibraryView();
+}
+
+function reloadIframeFallback(query) {
+  const iframe = document.getElementById("youtube-player");
+  // If loading source directly, add volume parameter cues if possible
+  iframe.src = `https://www.youtube.com/embed?autoplay=1&listType=search&list=${encodeURIComponent(query)}&enablejsapi=1&origin=${window.location.origin}`;
+  isPlaying = true;
+  updatePlayerBar();
+  updateQueueView();
+  renderLyrics();
+  progressInterval = setInterval(trackPlaybackProgress, 500);
 }
 
 function trackPlaybackProgress() {
@@ -604,11 +635,13 @@ function setupEventListeners() {
     const clickX = e.clientX - rect.left;
     const percent = Math.min(Math.max(clickX / rect.width, 0), 1);
     
+    userVolume = Math.round(percent * 100);
     if (isYTReady && ytPlayer && ytPlayer.setVolume) {
-      ytPlayer.setVolume(percent * 100);
+      ytPlayer.setVolume(userVolume);
+      ytPlayer.unMute();
     }
-    volumeProgress.style.width = `${percent * 100}%`;
-    showToast(`Volume: ${Math.round(percent * 100)}%`);
+    volumeProgress.style.width = `${userVolume}%`;
+    showToast(`Volume: ${userVolume}%`);
   });
 
   btnPlay.addEventListener("click", togglePlay);
