@@ -26,8 +26,6 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
                 return
                 
             try:
-                # Resolve double URL-encoding if any
-                target_url = urllib.parse.unquote(target_url)
                 print(f"[Proxy] Forwarding request to: {target_url}")
                 
                 req = urllib.request.Request(
