@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Spotify Glass",
+    "slug": "sumanto",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./icon-512.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./icon-512.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#070b19"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sumantonayak.spotifyglass"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./icon-192.png",
+        "backgroundColor": "#070b19"
+      },
+      "package": "com.sumantonayak.spotifyglass"
+    },
+    "web": {
+      "favicon": "./icon-192.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cf64e706-3466-438c-92b2-d6378b103312"
+      }
+    },
+    "owner": "sumantonayak203s-team"
+  }
+}
