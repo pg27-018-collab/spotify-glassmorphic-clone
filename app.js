@@ -79,13 +79,14 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        url: item.previewUrl, // Starts as iTunes 30s preview
-        duration: 30,         // Starts as 30s
+        url: item.previewUrl,      // Valid iTunes preview stream
+        duration: 30,              // Initial preview duration
         isFullSong: false,
-        isUpgraded: false,    // Tracks if JioSaavn full-stream was loaded
+        isUpgraded: false,         // Upgrades to true when Saavn stream loads
+        fallbackUrl: item.previewUrl,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
-    });
+    }).filter(track => track.url);
   } catch (error) {
     console.error("iTunes API search failed:", error);
     return [];
@@ -274,7 +275,7 @@ function updateLibraryView() {
   renderTracksList(likedTracks, libraryLikedContainer);
 }
 
-// --- MUSIC PLAYBACK CONTROL ENGINE WITH STREAM HOT-SWAPPING ---
+// --- MUSIC PLAYBACK CONTROL ENGINE WITH DYNAMIC STREAM HOT-SWAPPING ---
 async function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
@@ -283,7 +284,7 @@ async function loadAndPlayTrack() {
 
   showToast(`Streaming "${currentSong.title}"...`, true);
 
-  // 1. Play the iTunes preview URL instantly so the user hears music immediately!
+  // 1. Play the iTunes preview URL instantly so music starts playing under 100ms!
   audio.src = currentSong.url;
   audio.load();
   audio.play()
@@ -323,7 +324,7 @@ async function loadAndPlayTrack() {
           const fullMediaUrl = songInfo.media_url || (songInfo.media_urls && (songInfo.media_urls["320_KBPS"] || songInfo.media_urls["160_KBPS"]));
           
           if (fullMediaUrl) {
-            console.log("Upgraded stream to JioSaavn full-length track");
+            console.log("Upgrading stream to JioSaavn full-length track");
             
             // Capture current position to perform a seamless hot-swap
             const currentPosition = audio.currentTime;
@@ -364,6 +365,10 @@ function trackPlaybackProgress() {
     timeCurrent.innerText = formatTime(cur);
     timeDuration.innerText = formatTime(dur);
     updateLyricsHighlight(cur);
+  } else {
+    // If duration not loaded yet, reset timeline texts to 0:00 or active values
+    timeCurrent.innerText = formatTime(cur);
+    timeDuration.innerText = "loading...";
   }
 }
 
@@ -595,6 +600,33 @@ function setupEventListeners() {
       await filterSearch(query);
     } else {
       switchView("home");
+    }
+  });
+
+  // Audio metadata load event listener
+  audio.addEventListener("loadedmetadata", () => {
+    if (audio.duration) {
+      timeDuration.innerText = formatTime(audio.duration);
+    }
+  });
+
+  // Self-healing play error recovery listener
+  audio.addEventListener("error", (e) => {
+    console.warn("Audio element error event caught. Healing stream...");
+    const currentSong = currentTrackList[currentSongIndex];
+    if (currentSong && currentSong.isUpgraded && currentSong.fallbackUrl) {
+      showToast("Upgraded stream failed. Reverting to backup...", false);
+      currentSong.url = currentSong.fallbackUrl;
+      currentSong.isUpgraded = false;
+      currentSong.isFullSong = false;
+      currentSong.duration = 30;
+      
+      audio.src = currentSong.fallbackUrl;
+      audio.load();
+      audio.play().catch(err => console.error("Fallback recovery play blocked:", err));
+      
+      updatePlayerBar();
+      renderTracksList(currentTrackList, homeTrackListContainer);
     }
   });
 
