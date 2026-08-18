@@ -63,45 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initAppMusic();
 });
 
-// --- API FETCH UTILITIES (JioSaavn Search & Details) ---
+// --- API FETCH UTILITIES (iTunes Search Catalog) ---
 async function fetchMusic(query, limit = 20) {
-  const base = "https://jiosaavn-api.vercel.app";
-  
-  try {
-    const url = `${base}/api/search?query=${encodeURIComponent(query)}`;
-    const response = await fetch(url);
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.results && data.results.length > 0) {
-        console.log("Loaded song metadata from JioSaavn Search API");
-        return data.results.map(item => {
-          const coverUrl = item.images && item.images["500x500"] 
-            ? item.images["500x500"] 
-            : (item.image || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80");
-            
-          const artistsName = item.more_info ? item.more_info.singers : "Unknown Artist";
-
-          return {
-            id: String(item.id),
-            title: item.title,
-            artist: artistsName,
-            album: item.album || "Single",
-            cover: coverUrl,
-            url: "", // Will be lazy-loaded on play
-            duration: 240, // default placeholder
-            isFullSong: true,
-            fallbackUrl: "",
-            lyrics: generateSimulatedLyrics(item.title, artistsName)
-          };
-        });
-      }
-    }
-  } catch (e) {
-    console.warn("JioSaavn search failed, falling back to iTunes API:", e);
-  }
-
-  // Fallback to iTunes Search API if JioSaavn API is offline
   try {
     const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}`);
     const data = await response.json();
@@ -116,15 +79,15 @@ async function fetchMusic(query, limit = 20) {
         artist: item.artistName,
         album: item.collectionName || "Single",
         cover: hdCover,
-        url: item.previewUrl, // 30s iTunes preview
-        duration: 30,
+        url: item.previewUrl, // Starts as iTunes 30s preview
+        duration: 30,         // Starts as 30s
         isFullSong: false,
-        fallbackUrl: item.previewUrl,
+        isUpgraded: false,    // Tracks if JioSaavn full-stream was loaded
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
-    }).filter(track => track.url);
+    });
   } catch (error) {
-    console.error("All music APIs failed:", error);
+    console.error("iTunes API search failed:", error);
     return [];
   }
 }
@@ -237,7 +200,7 @@ function renderTracksList(tracks, container) {
         </div>
       </div>
       <div class="track-album">${track.album}</div>
-      <div class="track-duration">Full Song</div>
+      <div class="track-duration">${track.isFullSong ? 'Full Song' : 'Streaming'}</div>
       <div class="track-actions" onclick="event.stopPropagation();">
         <button class="btn-like ${likedSongs.has(track.id) ? 'liked' : ''}" onclick="toggleLike('${track.id}')">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;">
@@ -311,80 +274,84 @@ function updateLibraryView() {
   renderTracksList(likedTracks, libraryLikedContainer);
 }
 
-// --- MUSIC PLAYBACK CONTROL ENGINE ---
+// --- MUSIC PLAYBACK CONTROL ENGINE WITH STREAM HOT-SWAPPING ---
 async function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
 
   if (progressInterval) clearInterval(progressInterval);
 
-  showToast(`Loading "${currentSong.title}"...`, true);
+  showToast(`Streaming "${currentSong.title}"...`, true);
 
+  // 1. Play the iTunes preview URL instantly so the user hears music immediately!
+  audio.src = currentSong.url;
+  audio.load();
+  audio.play()
+    .then(() => {
+      isPlaying = true;
+      updatePlayerBar();
+      updateQueueView();
+      renderLyrics();
+      progressInterval = setInterval(trackPlaybackProgress, 500);
+    })
+    .catch(err => {
+      console.error("Playback failed to start:", err);
+    });
+
+  // 2. If already upgraded to full song, stop here
+  if (currentSong.isUpgraded) return;
+
+  // 3. Background call to locate and swap to JioSaavn full-length audio stream
   try {
-    // Lazy-load direct full audio streams from the JioSaavn API details endpoint
-    if (currentSong.isFullSong && !currentSong.url) {
-      const detailsUrl = `https://jiosaavn-api.vercel.app/api/song?id=${currentSong.id}`;
-      const response = await fetch(detailsUrl);
-      if (response.ok) {
-        const detailsData = await response.json();
-        const songInfo = detailsData.results ? detailsData.results[0] : detailsData;
+    const searchQuery = `${currentSong.title} ${currentSong.artist}`;
+    const searchUrl = `https://jiosaavn-api.vercel.app/api/search?query=${encodeURIComponent(searchQuery)}`;
+    
+    const response = await fetch(searchUrl);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.results && data.results.length > 0) {
+        const topResult = data.results[0];
         
-        if (songInfo && songInfo.media_url) {
-          currentSong.url = songInfo.media_url;
-          currentSong.duration = parseDurationString(songInfo.duration);
-        } else {
-          // Check media_urls block
-          const mediaUrls = songInfo.media_urls || {};
-          const bestUrl = mediaUrls["320_KBPS"] || mediaUrls["160_KBPS"] || mediaUrls["96_KBPS"];
-          if (bestUrl) {
-            currentSong.url = bestUrl;
+        // Fetch song details
+        const detailsUrl = `https://jiosaavn-api.vercel.app/api/song?id=${topResult.id}`;
+        const detailRes = await fetch(detailsUrl);
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          const songInfo = detailData.results ? detailData.results[0] : detailData;
+          
+          // Get direct stream link
+          const fullMediaUrl = songInfo.media_url || (songInfo.media_urls && (songInfo.media_urls["320_KBPS"] || songInfo.media_urls["160_KBPS"]));
+          
+          if (fullMediaUrl) {
+            console.log("Upgraded stream to JioSaavn full-length track");
+            
+            // Capture current position to perform a seamless hot-swap
+            const currentPosition = audio.currentTime;
+            const wasPlaying = !audio.paused;
+            
+            currentSong.url = fullMediaUrl;
             currentSong.duration = parseDurationString(songInfo.duration);
+            currentSong.isFullSong = true;
+            currentSong.isUpgraded = true;
+            
+            audio.src = fullMediaUrl;
+            audio.load();
+            audio.currentTime = currentPosition;
+            
+            if (wasPlaying) {
+              audio.play().catch(e => console.warn("Failed hot-swap autoplay:", e));
+            }
+            
+            // Re-render durations
+            updatePlayerBar();
+            renderTracksList(currentTrackList, homeTrackListContainer);
           }
         }
       }
     }
-
-    // Playback via native HTML5 Audio Engine
-    audio.src = currentSong.url || currentSong.fallbackUrl;
-    audio.load();
-    audio.play()
-      .then(() => {
-        isPlaying = true;
-        updatePlayerBar();
-        updateQueueView();
-        renderLyrics();
-        progressInterval = setInterval(trackPlaybackProgress, 500);
-      })
-      .catch(err => {
-        console.error("Native play failed, executing iTunes fallback preview:", err);
-        // Execute fallback if geoblocked/offline
-        if (currentSong.fallbackUrl && audio.src !== currentSong.fallbackUrl) {
-          audio.src = currentSong.fallbackUrl;
-          audio.play().then(() => {
-            isPlaying = true;
-            updatePlayerBar();
-          }).catch(e => {
-            console.error("Playback fallback failed:", e);
-            isPlaying = false;
-            updatePlayerBar();
-          });
-        } else {
-          isPlaying = false;
-          updatePlayerBar();
-        }
-      });
   } catch (err) {
-    console.error("Playback engine setup failed:", err);
-    isPlaying = false;
-    updatePlayerBar();
+    console.warn("JioSaavn full song upgrade failed (likely geoblocked/rate-limited). Continuing preview stream.");
   }
-
-  renderTracksList(currentTrackList, homeTrackListContainer);
-  if (viewSearch.classList.contains("active")) {
-    const term = searchInput.value.toLowerCase().trim();
-    if (term) filterSearch(term);
-  }
-  updateLibraryView();
 }
 
 function trackPlaybackProgress() {
@@ -443,6 +410,7 @@ function updatePlayerBar() {
   }
 }
 
+// Skip actions
 function skipNext() {
   if (isShuffle) {
     currentSongIndex = Math.floor(Math.random() * currentTrackList.length);
