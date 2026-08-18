@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "regions": ["bom1"],
+  "rewrites": [
+    { "source": "/api/proxy", "destination": "/api/proxy.js" }
+  ]
+}

@@ -9,6 +9,9 @@ let likedSongs = new Set(JSON.parse(localStorage.getItem('likedSongs')) || []);
 let currentLyrics = [];
 let progressInterval = null;
 
+// Unified proxy endpoint for bypassing geoblocks both locally (server.py) and on Vercel
+const proxyBase = window.location.origin + "/api/proxy?url=";
+
 // --- DOM ELEMENTS ---
 const audio = document.getElementById("audio-engine");
 const viewHome = document.getElementById("view-home");
@@ -113,7 +116,7 @@ async function getSpotifyToken() {
 async function fetchMusic(query, limit = 20) {
   const spotifyToken = await getSpotifyToken();
   
-  // 1. If Spotify Developer credentials are saved, query Spotify catalog
+  // 1. If Spotify credentials are saved, query Spotify catalog
   if (spotifyToken) {
     try {
       const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`, {
@@ -139,11 +142,13 @@ async function fetchMusic(query, limit = 20) {
               album: item.album.name || "Single",
               cover: coverUrl,
               url: item.preview_url, // Spotify official 30s preview URL
-              duration: 30,          // Spotify preview duration is 30s
+              duration: 30,          // Initial preview duration
               isFullSong: false,
+              isUpgraded: false,
+              fallbackUrl: item.preview_url,
               lyrics: generateSimulatedLyrics(item.name, artists)
             };
-          }).filter(track => track.url); // filter out tracks with null preview URLs
+          }).filter(track => track.url);
         }
       }
     } catch (e) {
@@ -167,8 +172,10 @@ async function fetchMusic(query, limit = 20) {
         album: item.collectionName || "Single",
         cover: hdCover,
         url: item.previewUrl, // iTunes official 30s preview URL
-        duration: 30,          // iTunes preview duration is 30s
+        duration: 30,          // Initial preview duration
         isFullSong: false,
+        isUpgraded: false,
+        fallbackUrl: item.previewUrl,
         lyrics: generateSimulatedLyrics(item.trackName, item.artistName)
       };
     }).filter(track => track.url);
@@ -181,14 +188,17 @@ async function fetchMusic(query, limit = 20) {
 // Generate synced lyrics dynamically
 function generateSimulatedLyrics(title, artist) {
   return [
-    { time: 0, text: `[Playing Original Preview: ${title}]` },
-    { time: 3, text: `Artist: ${artist}` },
-    { time: 6, text: "[Streaming direct CD-quality AAC audio]" },
-    { time: 10, text: "Bypassing geoblocking and YouTube frames completely." },
-    { time: 15, text: "High-fidelity native audio streaming active." },
-    { time: 20, text: "Click the settings icon to configure your Spotify keys." },
-    { time: 25, text: "Transitioning to next track shortly..." },
-    { time: 30, text: "[End of Preview]" }
+    { time: 0, text: `[Playing: ${title}]` },
+    { time: 4, text: `Artist: ${artist}` },
+    { time: 8, text: "[Melodic Intro Playing...]" },
+    { time: 13, text: "Welcome to Spotify Glass!" },
+    { time: 20, text: "Streaming high-fidelity original audio streams." },
+    { time: 28, text: "Click the Heart icon to save this song to your library." },
+    { time: 35, text: "Toggle between scrolling lyrics and queue panels on the right side." },
+    { time: 45, text: "Search for any Hindi, Punjabi, Haryanvi, or international track." },
+    { time: 60, text: "[Melodious Instrumental Bridge]" },
+    { time: 85, text: "Adjust progress and volume slider controls dynamically." },
+    { time: 120, text: "[Outro Beats]" }
   ];
 }
 
@@ -223,6 +233,30 @@ async function initAppMusic() {
   updatePlayerBar();
   renderLyrics();
   updateQueueView();
+}
+
+// --- DECRYPTION LOGIC FOR JIOSAAVN (Correct updated key: 38346591) ---
+function decryptJioSaavnUrl(encryptedUrl) {
+  try {
+    const key = CryptoJS.enc.Utf8.parse('38346591');
+    const decrypted = CryptoJS.DES.decrypt(
+      { ciphertext: CryptoJS.enc.Base64.parse(encryptedUrl) },
+      key,
+      { mode: CryptoJS.mode.ECB, padding: CryptoJS.pad.Pkcs7 }
+    );
+    const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
+    if (!decryptedText) return null;
+    
+    // Choose 320kbps quality
+    let finalUrl = decryptedText.replace("_96.mp4", "_320.mp4").replace("_96.mp3", "_320.mp3");
+    if (!finalUrl.startsWith("http")) {
+      finalUrl = "https:" + finalUrl;
+    }
+    return finalUrl;
+  } catch (e) {
+    console.error("JioSaavn DES Decryption failed:", e);
+    return null;
+  }
 }
 
 // --- NAVIGATION SYSTEM ---
@@ -269,7 +303,7 @@ function renderTracksList(tracks, container) {
         </div>
       </div>
       <div class="track-album">${track.album}</div>
-      <div class="track-duration">0:30 Preview</div>
+      <div class="track-duration">${track.isFullSong ? 'Full Song' : '0:30 Preview'}</div>
       <div class="track-actions" onclick="event.stopPropagation();">
         <button class="btn-like ${likedSongs.has(track.id) ? 'liked' : ''}" onclick="toggleLike('${track.id}')">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;">
@@ -298,7 +332,7 @@ async function loadCategory(genre) {
     case 'Punjabi':
       apiQuery = "Diljit Dosanjh Karan Aujla AP Dhillon Shubh";
       displayTitle = "Latest Punjabi Hits";
-      displayDesc = "Bhangra energy and punjabi pop trends. Official 30s previews.";
+      displayDesc = "Bhangra energy and punjabi pop trends. Full songs streaming now.";
       break;
     case 'Retro':
       apiQuery = "Kishore Kumar Lata Mangeshkar RD Burman Rafi";
@@ -313,7 +347,7 @@ async function loadCategory(genre) {
     case 'Haryanvi':
       apiQuery = "Sapna Choudhary Raju Haryanvi Hits";
       displayTitle = "Latest Haryanvi Beats";
-      displayDesc = "High bass and local rhythmic hooks streaming in high quality.";
+      displayDesc = "High bass and local rhythmic hooks streaming in full length.";
       break;
   }
 
@@ -343,7 +377,7 @@ function updateLibraryView() {
   renderTracksList(likedTracks, libraryLikedContainer);
 }
 
-// --- NATIVE HTML5 PLAYBACK ENGINE ---
+// --- MUSIC PLAYBACK CONTROL ENGINE WITH DYNAMIC STREAM UPGRADE ---
 async function loadAndPlayTrack() {
   const currentSong = currentTrackList[currentSongIndex];
   if (!currentSong) return;
@@ -352,34 +386,80 @@ async function loadAndPlayTrack() {
 
   showToast(`Streaming: "${currentSong.title}"...`, true);
 
-  try {
-    audio.src = currentSong.url;
-    audio.load();
-    audio.play()
-      .then(() => {
-        isPlaying = true;
-        updatePlayerBar();
-        updateQueueView();
-        renderLyrics();
-        progressInterval = setInterval(trackPlaybackProgress, 500);
-      })
-      .catch(err => {
-        console.error("Playback failed:", err);
-        isPlaying = false;
-        updatePlayerBar();
-      });
-  } catch (err) {
-    console.error("Audio player failed:", err);
-    isPlaying = false;
-    updatePlayerBar();
-  }
+  // 1. Play the iTunes/Spotify preview instantly so user hears music immediately!
+  audio.src = currentSong.url;
+  audio.load();
+  audio.play()
+    .then(() => {
+      isPlaying = true;
+      updatePlayerBar();
+      updateQueueView();
+      renderLyrics();
+      progressInterval = setInterval(trackPlaybackProgress, 500);
+    })
+    .catch(err => {
+      console.error("Playback failed to start:", err);
+    });
 
-  renderTracksList(currentTrackList, homeTrackListContainer);
-  if (viewSearch.classList.contains("active")) {
-    const term = searchInput.value.toLowerCase().trim();
-    if (term) filterSearch(term);
+  // 2. If already upgraded, stop here
+  if (currentSong.isUpgraded) return;
+
+  // 3. Background query JioSaavn official API via proxy & decrypt the full song URL
+  try {
+    const searchQuery = `${currentSong.title} ${currentSong.artist}`;
+    const searchApiUrl = `https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&query=${encodeURIComponent(searchQuery)}`;
+    
+    // Query search via the proxy endpoint
+    const response = await fetch(proxyBase + encodeURIComponent(searchApiUrl));
+    if (response.ok) {
+      const data = await response.json();
+      const songs = data.songs ? data.songs.data : [];
+      
+      if (songs && songs.length > 0) {
+        const topSong = songs[0];
+        
+        // Fetch details to get encrypted url
+        const detailsApiUrl = `https://www.jiosaavn.com/api.php?__call=song.getDetails&_format=json&pids=${topSong.id}`;
+        const detailRes = await fetch(proxyBase + encodeURIComponent(detailsApiUrl));
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          const songInfo = detailData[topSong.id];
+          
+          if (songInfo && songInfo.encrypted_media_url) {
+            // Decrypt using key 38346591
+            const fullMediaUrl = decryptJioSaavnUrl(songInfo.encrypted_media_url);
+            
+            if (fullMediaUrl) {
+              console.log("Upgraded stream to JioSaavn full-length track:", fullMediaUrl);
+              
+              // Seamless hot-swap
+              const currentPosition = audio.currentTime;
+              const wasPlaying = !audio.paused;
+              
+              currentSong.url = fullMediaUrl;
+              currentSong.duration = parseInt(songInfo.duration) || 240;
+              currentSong.isFullSong = true;
+              currentSong.isUpgraded = true;
+              
+              audio.src = fullMediaUrl;
+              audio.load();
+              audio.currentTime = currentPosition;
+              
+              if (wasPlaying) {
+                audio.play().catch(e => console.warn("Autoplay block on hot-swap:", e));
+              }
+              
+              // Re-render dashboard durations
+              updatePlayerBar();
+              renderTracksList(currentTrackList, homeTrackListContainer);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("JioSaavn upgrade failed, continuing preview streaming:", err);
   }
-  updateLibraryView();
 }
 
 function trackPlaybackProgress() {
@@ -623,7 +703,7 @@ function setupEventListeners() {
     }
   });
 
-  // Audio event listeners
+  // Audio events
   audio.addEventListener("ended", () => {
     if (isRepeat) {
       audio.currentTime = 0;
@@ -641,6 +721,25 @@ function setupEventListeners() {
   audio.addEventListener("play", () => {
     isPlaying = true;
     updatePlayerBar();
+  });
+
+  // Native self-healing error listener
+  audio.addEventListener("error", (e) => {
+    console.warn("Media error event caught. Reverting to preview fallback stream...");
+    const currentSong = currentTrackList[currentSongIndex];
+    if (currentSong && currentSong.isUpgraded && currentSong.fallbackUrl) {
+      currentSong.url = currentSong.fallbackUrl;
+      currentSong.isUpgraded = false;
+      currentSong.isFullSong = false;
+      currentSong.duration = 30;
+      
+      audio.src = currentSong.fallbackUrl;
+      audio.load();
+      audio.play().catch(err => console.error("Fallback recovery blocked:", err));
+      
+      updatePlayerBar();
+      renderTracksList(currentTrackList, homeTrackListContainer);
+    }
   });
 
   timeline.addEventListener("click", (e) => {
