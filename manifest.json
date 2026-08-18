@@ -2,11 +2,13 @@
   "name": "Spotify Glass",
   "short_name": "Spotify Glass",
   "description": "Premium Glassmorphism Music Player",
+  "id": "/?source=pwa",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#070b19",
   "theme_color": "#1ed760",
   "orientation": "portrait",
+  "categories": ["music", "entertainment"],
   "icons": [
     {
       "src": "icon-192.png",
@@ -17,6 +19,22 @@
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Spotify Glass Mobile Player"
+    },
+    {
+      "src": "screenshot.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Spotify Glass Desktop Player"
     }
   ]
 }

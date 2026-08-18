@@ -9,7 +9,8 @@
     { "src": "manifest.json", "use": "@vercel/static" },
     { "src": "sw.js", "use": "@vercel/static" },
     { "src": "icon-192.png", "use": "@vercel/static" },
-    { "src": "icon-512.png", "use": "@vercel/static" }
+    { "src": "icon-512.png", "use": "@vercel/static" },
+    { "src": "screenshot.png", "use": "@vercel/static" }
   ],
   "rewrites": [
     { "source": "/api/proxy", "destination": "/api/proxy.js" }
