@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Spotify Premium Clone - Unlimited Glassmorphic Music Player</title>
   <meta name="description" content="A premium glassmorphic clone of Spotify featuring full song streaming across Punjabi, Hindi, Haryanvi, and global music.">
   
@@ -154,8 +154,15 @@
 
             <!-- Trending Songs list -->
             <h2 class="section-title">Trending Tracks</h2>
+            
+            <div class="filter-chips-container">
+              <button class="filter-chip active" data-filter="all">All</button>
+              <button class="filter-chip" data-filter="male">Male Voice</button>
+              <button class="filter-chip" data-filter="female">Female Voice</button>
+            </div>
+
             <div id="home-track-list" class="tracklist-container">
-              <!-- Dynamically populated via app.js -->
+              <!-- Dynamically populated via web-app.js -->
             </div>
           </section>
 

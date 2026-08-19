@@ -6,6 +6,28 @@ let isPlaying = false;
 let isShuffle = false;
 let isRepeat = false;
 let likedSongs = new Set(JSON.parse(localStorage.getItem('likedSongs')) || []);
+let likedSongObjects = JSON.parse(localStorage.getItem('likedSongObjects')) || [];
+let currentVoiceFilter = "all";
+
+const maleArtists = ["arijit", "diljit", "kishore", "burman", "karan aujla", "moosewala", "honey singh", "badshah", "nautiyal", "atif", "darshan", "sriram", "udit", "kumar sanu", "sonu"];
+const femaleArtists = ["lata", "asha", "shreya", "neha", "sunidhi", "alka", "tulsi", "dhvani", "jasleen", "jonita", "kanika", "asees", "taylor", "billie", "dua", "ariana", "olivia", "selena"];
+
+function getVoiceCategory(artist, songId) {
+  const artLower = artist.toLowerCase();
+  for (const m of maleArtists) {
+    if (artLower.includes(m)) return "male";
+  }
+  for (const f of femaleArtists) {
+    if (artLower.includes(f)) return "female";
+  }
+  let hash = 0;
+  const str = songId || artist || "";
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return (hash % 2 === 0) ? "male" : "female";
+}
+
 let currentLyrics = [];
 let progressInterval = null;
 
@@ -235,7 +257,7 @@ async function initAppMusic() {
   }
 
   currentTrackList = [...songDatabase];
-  renderTracksList(songDatabase, homeTrackListContainer);
+  renderHomeTracks();
   
   // Set default details in player bar
   currentSongIndex = 0;
@@ -381,7 +403,7 @@ async function loadCategory(genre) {
   if (results.length > 0) {
     songDatabase = results;
     currentTrackList = [...songDatabase];
-    renderTracksList(songDatabase, homeTrackListContainer);
+    renderHomeTracks();
     currentSongIndex = 0;
     loadAndPlayTrack();
   } else {
@@ -390,9 +412,16 @@ async function loadCategory(genre) {
   switchView("home");
 }
 
+function renderHomeTracks() {
+  let tracksToRender = [...songDatabase];
+  if (currentVoiceFilter !== "all") {
+    tracksToRender = tracksToRender.filter(t => getVoiceCategory(t.artist, t.id) === currentVoiceFilter);
+  }
+  renderTracksList(tracksToRender, homeTrackListContainer);
+}
+
 function updateLibraryView() {
-  const likedTracks = currentTrackList.filter(t => likedSongs.has(t.id));
-  renderTracksList(likedTracks, libraryLikedContainer);
+  renderTracksList(likedSongObjects, libraryLikedContainer);
 }
 
 // --- MUSIC PLAYBACK CONTROL ENGINE WITH DYNAMIC STREAM UPGRADE ---
@@ -553,17 +582,29 @@ function skipPrev() {
 }
 
 function toggleLike(songId) {
+  const track = currentTrackList.find(t => t.id === songId) || 
+                songDatabase.find(t => t.id === songId) || 
+                likedSongObjects.find(t => t.id === songId);
+                
+  if (!track) return;
+
   if (likedSongs.has(songId)) {
     likedSongs.delete(songId);
+    likedSongObjects = likedSongObjects.filter(t => t.id !== songId);
     showToast("Removed from Liked Songs");
   } else {
     likedSongs.add(songId);
+    if (!likedSongObjects.some(t => t.id === songId)) {
+      likedSongObjects.push(track);
+    }
     showToast("Added to Liked Songs", true);
   }
+  
   localStorage.setItem('likedSongs', JSON.stringify(Array.from(likedSongs)));
+  localStorage.setItem('likedSongObjects', JSON.stringify(likedSongObjects));
   
   // Re-render
-  renderTracksList(currentTrackList, homeTrackListContainer);
+  renderHomeTracks();
   if (viewSearch.classList.contains("active")) {
     const term = searchInput.value.toLowerCase().trim();
     if (term) filterSearch(term);
@@ -857,6 +898,18 @@ function setupEventListeners() {
   if (mHome) mHome.addEventListener("click", () => switchView("home"));
   if (mSearch) mSearch.addEventListener("click", () => switchView("search"));
   if (mLibrary) mLibrary.addEventListener("click", () => switchView("library"));
+
+  // Filter chips event listeners
+  const filterChips = document.querySelectorAll(".filter-chip");
+  filterChips.forEach(chip => {
+    chip.addEventListener("click", () => {
+      filterChips.forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      currentVoiceFilter = chip.dataset.filter;
+      renderHomeTracks();
+      showToast(`Filtered: ${chip.innerText}`);
+    });
+  });
 }
 
 function formatTime(seconds) {

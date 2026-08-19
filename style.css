@@ -1504,7 +1504,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 64px;
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
   background: rgba(10, 15, 30, 0.92);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
@@ -1512,7 +1512,7 @@ body {
   justify-content: space-around;
   align-items: center;
   z-index: 10000;
-  padding-bottom: env(safe-area-inset-bottom, 10px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .mobile-nav-item {
@@ -1595,7 +1595,7 @@ body {
   /* Floating Premium Mobile Player Bar */
   .player-bar {
     position: fixed !important;
-    bottom: 74px !important; /* Float above bottom nav */
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px)) !important; /* Float above bottom nav */
     left: 8px !important;
     right: 8px !important;
     width: calc(100% - 16px) !important;
@@ -1665,3 +1665,39 @@ body {
     gap: 12px !important;
   }
 }
+
+/* Filter Chips */
+.filter-chips-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.filter-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 8px 16px;
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filter-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.filter-chip.active {
+  background: var(--spotify-green);
+  border-color: var(--spotify-green);
+  color: #000000;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(30, 215, 96, 0.3);
+}
+
