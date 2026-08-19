@@ -36,10 +36,16 @@
         <div class="sidebar-top">
           <!-- Logo branding -->
           <div class="logo-container">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-12S17.52 2 12 2zm4.58 14.39c-.18.29-.56.38-.85.2-.29-.18-.38-.56-.2-.85 1.05-1.72 2.65-2.28 4.41-1.89.33.07.54-.14.61-.47.07-.33-.14-.54-.47-.61-2.03-.45-3.89.17-5.12 2.19-.18.28-.18.66.18.84.28.18.66.18.84-.18l.6-.93zM13.2 13.9c-.23.37-.72.49-1.09.26-.37-.23-.49-.72-.26-1.09 1.34-2.19 3.52-2.91 5.86-2.42.41.09.68-.17.77-.58.09-.41-.17-.68-.58-.77-2.65-.55-5.11.27-6.68 2.82l-.02.04c-.23.36-.23.85.2 1.08.37.23.85.2 1.08-.2l.72-1.14zm.12-2.97c-.28.46-.88.61-1.34.33-.46-.28-.61-.88-.33-1.34 1.6-2.62 4.38-3.48 7.29-2.9.51.1.84-.23.94-.74.1-.51-.23-.84-.74-.94-3.27-.65-6.38.31-8.24 3.35l.02.04c-.28.46-.28 1.07.26 1.35.46.28 1.07.26 1.35-.26l.8-1.33z"/>
+            <svg viewBox="0 0 24 24" style="filter: drop-shadow(0 0 8px var(--accent-color)); width: 28px; height: 28px;">
+              <path d="M6 19V5h3l6 10V5h3v14h-3L9 9v10H6z" fill="url(#neonGlow)"/>
+              <defs>
+                <linearGradient id="neonGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#1ed760"/>
+                  <stop offset="100%" stop-color="#9d4edd"/>
+                </linearGradient>
+              </defs>
             </svg>
-            <span class="logo-text">Spotify<sup>Glass</sup></span>
+            <span class="logo-text">N-Music<sup>Glass</sup></span>
           </div>
 
           <!-- Navigation Links -->
@@ -357,6 +363,102 @@
       
       <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
         <button id="btn-save-settings" style="background: var(--spotify-green); border: none; border-radius: 20px; padding: 10px 24px; color: #000; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 12px rgba(30, 215, 96, 0.3);">Save & Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Now Playing Overlay -->
+  <div id="fullscreen-player" class="fullscreen-player-overlay" style="display: none;">
+    <!-- Ambient glowing backgrounds matching current artwork -->
+    <div id="fs-ambient-glow" class="fs-ambient-glow"></div>
+    
+    <!-- Top Nav Bar -->
+    <div class="fs-top-bar">
+      <button id="fs-btn-minimize" class="fs-nav-btn">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+        </svg>
+      </button>
+      <span class="fs-header-title">Now Playing</span>
+      <button id="fs-btn-lyrics-toggle" class="fs-nav-btn">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="fs-content">
+      <!-- Left Column: Album Art + Lyrics -->
+      <div class="fs-main-panel">
+        <div class="fs-artwork-container">
+          <img id="fs-artwork" src="" alt="Album Art" class="fs-artwork-image">
+        </div>
+        
+        <!-- Interactive Lyrics overlay pane -->
+        <div id="fs-lyrics-container" class="fs-lyrics-container">
+          <div id="fs-lyrics-content" class="fs-lyrics-content">
+            <!-- Lyrics populate here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Queue & Artist Recommended Playlist -->
+      <div class="fs-sidebar-panel">
+        <div class="fs-section-title">Up Next</div>
+        <div id="fs-queue-list" class="fs-queue-list">
+          <!-- Queue items populate here -->
+        </div>
+
+        <div class="fs-section-title" style="margin-top: 24px;">Recommended Artist Tracks</div>
+        <div id="fs-artist-rec-list" class="fs-artist-rec-list">
+          <!-- Recommended tracks populate here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Control bar -->
+    <div class="fs-controls-container">
+      <div class="fs-track-info">
+        <div class="fs-track-details">
+          <div id="fs-track-title" class="fs-track-title">Not Playing</div>
+          <div id="fs-track-artist" class="fs-track-artist">Select a track to start listening.</div>
+        </div>
+        <button id="fs-btn-like" class="fs-like-btn">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Seeker progress bar -->
+      <div class="fs-timeline-container">
+        <span id="fs-time-current" class="fs-time-label">0:00</span>
+        <div id="fs-timeline" class="slider-container">
+          <div id="fs-timeline-progress" class="slider-progress">
+            <div class="slider-handle"></div>
+          </div>
+        </div>
+        <span id="fs-time-duration" class="fs-time-label">0:00</span>
+      </div>
+
+      <!-- Playback controls -->
+      <div class="fs-buttons-container">
+        <button id="fs-btn-shuffle" class="player-btn-small">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+        </button>
+        <button id="fs-btn-prev" class="player-btn-small">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button id="fs-btn-play" class="fs-play-btn-large">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" id="fs-play-icon"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button id="fs-btn-next" class="player-btn-small">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M6 18l8.5-6L6 6zm9-12v12h2V6z"/></svg>
+        </button>
+        <button id="fs-btn-repeat" class="player-btn-small">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+        </button>
       </div>
     </div>
   </div>
