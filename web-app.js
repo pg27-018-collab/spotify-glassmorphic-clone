@@ -29,6 +29,20 @@ function getVoiceCategory(artist, songId) {
   return (hash % 2 === 0) ? "male" : "female";
 }
 
+function getTrackGenre(track) {
+  if (!track) return "General";
+  const title = track.title.toLowerCase();
+  const artist = track.artist.toLowerCase();
+  
+  if (artist.includes("diljit") || artist.includes("bhangra") || title.includes("bhangra")) return "Punjabi";
+  if (artist.includes("arijit") || title.includes("arijit") || artist.includes("shreya") || title.includes("romantic") || title.includes("love")) return "Romantic";
+  if (artist.includes("sapna") || artist.includes("haryanvi") || title.includes("haryanvi") || artist.includes("raju")) return "Haryanvi";
+  if (title.includes("lofi") || title.includes("ambient") || title.includes("relax") || title.includes("instrumental") || artist.includes("lofi")) return "Lofi";
+  if (title.includes("sad") || title.includes("dusk") || title.includes("emotional")) return "Sad";
+  
+  return "General";
+}
+
 let currentLyrics = [];
 let progressInterval = null;
 
@@ -805,8 +819,24 @@ function updateFsQueueView() {
 }
 
 function skipNext() {
-  if (isShuffle) {
-    currentSongIndex = Math.floor(Math.random() * currentTrackList.length);
+  if (isShuffle && currentTrackList.length > 1) {
+    const currentSong = currentTrackList[currentSongIndex];
+    const currentGenre = getTrackGenre(currentSong);
+    
+    // Find all other tracks in the current list that match the same genre
+    const sameGenreTracks = currentTrackList.filter((t, idx) => idx !== currentSongIndex && getTrackGenre(t) === currentGenre);
+    
+    if (sameGenreTracks.length > 0) {
+      const randomTrack = sameGenreTracks[Math.floor(Math.random() * sameGenreTracks.length)];
+      currentSongIndex = currentTrackList.findIndex(t => t.id === randomTrack.id);
+    } else {
+      // Pick any random song other than the current one
+      let nextIdx = currentSongIndex;
+      while (nextIdx === currentSongIndex) {
+        nextIdx = Math.floor(Math.random() * currentTrackList.length);
+      }
+      currentSongIndex = nextIdx;
+    }
   } else {
     currentSongIndex = (currentSongIndex + 1) % currentTrackList.length;
   }
