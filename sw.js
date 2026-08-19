@@ -1,4 +1,4 @@
-const CACHE_NAME = "spotify-glass-v2";
+const CACHE_NAME = "spotify-glass-v3";
 const ASSETS = [
   "/",
   "/index.html",

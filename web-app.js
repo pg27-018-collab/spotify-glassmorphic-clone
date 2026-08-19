@@ -412,6 +412,50 @@ async function loadCategory(genre) {
   switchView("home");
 }
 
+async function loadMood(moodType, moodTitle, moodDesc) {
+  let apiQuery = "";
+  switch (moodType) {
+    case 'Energetic':
+      apiQuery = "diljit dosanjh bhangra energetic bass dance";
+      break;
+    case 'Romantic':
+      apiQuery = "arijit singh romantic love songs hindi";
+      break;
+    case 'Sad':
+      apiQuery = "arijit singh sad slow emotional hits";
+      break;
+    case 'Relax':
+      apiQuery = "lofi hindi soft instrumental study chill";
+      break;
+    case 'Happy':
+      apiQuery = "happy upbeat positive pop hindi";
+      break;
+  }
+
+  const heroTitle = document.getElementById("hero-title");
+  const heroDesc = document.getElementById("hero-desc");
+  if (heroTitle) heroTitle.innerText = moodTitle;
+  if (heroDesc) heroDesc.innerText = moodDesc;
+
+  homeTrackListContainer.innerHTML = `<div class="spinner" style="margin: 40px auto;"></div>`;
+  showToast(`Tuning into your ${moodType} mood...`, true);
+
+  const results = await fetchMusic(apiQuery, 20);
+  if (results.length > 0) {
+    songDatabase = results;
+    currentTrackList = [...songDatabase];
+    renderHomeTracks();
+    currentSongIndex = 0;
+    loadAndPlayTrack();
+  } else {
+    homeTrackListContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px;">Could not load mood recommendations. Check connection.</div>`;
+  }
+  switchView("home");
+}
+
+window.loadMood = loadMood;
+
+
 function renderHomeTracks() {
   let tracksToRender = [...songDatabase];
   if (currentVoiceFilter !== "all") {

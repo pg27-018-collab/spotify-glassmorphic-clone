@@ -1701,3 +1701,54 @@ body {
   box-shadow: 0 4px 12px rgba(30, 215, 96, 0.3);
 }
 
+/* Mood Selector Container */
+.mood-selector-container {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 28px;
+  overflow-x: auto;
+  padding: 8px 0;
+  scrollbar-width: none;
+}
+
+.mood-selector-container::-webkit-scrollbar {
+  display: none;
+}
+
+.mood-card {
+  flex: 1;
+  min-width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.02) !important;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  gap: 8px;
+}
+
+.mood-card:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--accent-color) !important;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(30, 215, 96, 0.15);
+}
+
+.mood-emoji {
+  font-size: 1.8rem;
+}
+
+.mood-text {
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
